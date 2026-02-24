@@ -1,6 +1,27 @@
 #!/usr/bin/env node
+import { scaffoldConfig } from "./init";
 import { runSemlint } from "./main";
 import { CliOptions, FailOn, OutputFormat } from "./types";
+
+const HELP_TEXT = [
+  "Usage:",
+  "  semlint check [--backend <name>] [--model <name>] [--config <path>] [--format <text|json>] [--base <ref>] [--head <ref>] [--fail-on <error|warn|never>] [--batch] [--debug]",
+  "  semlint init [--force]",
+  "  semlint --help",
+  "",
+  "Commands:",
+  "  check   Run semantic lint rules against your git diff",
+  "  init    Create semlint.json with auto-detected agent backend",
+  "",
+  "Options:",
+  "  -h, --help   Show this help text"
+].join("\n");
+
+class HelpRequestedError extends Error {
+  constructor() {
+    super(HELP_TEXT);
+  }
+}
 
 const FLAGS_WITH_VALUES = new Set([
   "--backend",
@@ -21,10 +42,29 @@ function isFailOn(value: string): value is FailOn {
 }
 
 function parseArgs(argv: string[]): CliOptions {
+  if (argv.length === 0 || argv.includes("--help") || argv.includes("-h") || argv[0] === "help") {
+    throw new HelpRequestedError();
+  }
+
   const [command, ...rest] = argv;
 
-  if (!command || command !== "check") {
-    throw new Error("Usage: semlint check [--backend <name>] [--model <name>] [--config <path>] [--format <text|json>] [--base <ref>] [--head <ref>] [--fail-on <error|warn|never>] [--batch] [--debug]");
+  if (!command || (command !== "check" && command !== "init")) {
+    throw new Error(HELP_TEXT);
+  }
+
+  if (command === "init") {
+    const options: CliOptions = {
+      command: "init",
+      debug: false
+    };
+    for (const token of rest) {
+      if (token === "--force") {
+        options.force = true;
+        continue;
+      }
+      throw new Error(`Unknown flag for init: ${token}`);
+    }
+    return options;
   }
 
   const options: CliOptions = {
@@ -92,12 +132,13 @@ function parseArgs(argv: string[]): CliOptions {
 async function main(): Promise<void> {
   try {
     const options = parseArgs(process.argv.slice(2));
-    const exitCode = await runSemlint(options);
+    const exitCode =
+      options.command === "init" ? scaffoldConfig(options.force) : await runSemlint(options);
     process.exitCode = exitCode;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
-    process.exitCode = 2;
+    process.exitCode = error instanceof HelpRequestedError ? 0 : 2;
   }
 }
 

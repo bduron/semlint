@@ -21,6 +21,12 @@ pnpm build
 semlint check
 ```
 
+Scaffold a project config with automatic coding agent CLI detection:
+
+```bash
+semlint init
+```
+
 If running from source:
 
 ```bash
@@ -38,6 +44,7 @@ pnpm check
 - `--fail-on <error|warn|never>`: failure threshold (default `error`)
 - `--batch`: run all selected rules in one backend call
 - `--debug`: enable debug logs to stderr
+- `init --force`: overwrite an existing `semlint.json`
 
 Default diff behavior (without `--base`/`--head`) uses your local branch state:
 
@@ -91,6 +98,24 @@ Unknown fields are ignored.
   }
 }
 ```
+
+## Config scaffolding and auto-detection
+
+Run:
+
+```bash
+semlint init
+```
+
+This creates `./semlint.json` and auto-detects installed coding agent CLIs in this priority order:
+
+1. `cursor` -> backend `cursor-cli`
+2. `claude` -> backend `claude-code`
+3. `codex` -> backend `codex-cli`
+
+If no known CLI is detected, Semlint falls back to `cursor-cli` + executable `cursor`.
+
+Use `semlint init --force` to overwrite an existing config file.
 
 ## Rule files
 
