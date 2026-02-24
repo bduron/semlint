@@ -1,21 +1,43 @@
 {
-  "name": "semlint",
+  "name": "semlint-cli",
   "version": "0.1.0",
-  "description": "Semlint CLI MVP",
+  "description": "Semantic lint CLI — runs LLM-backed rules on your git diff and returns CI-friendly exit codes",
   "type": "commonjs",
   "main": "dist/main.js",
   "bin": {
     "semlint": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "rules",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "pnpm run build",
     "check": "node dist/cli.js check",
     "start": "node dist/cli.js check",
     "serve:docs": "serve docs"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "lint",
+    "semantic",
+    "git",
+    "diff",
+    "ci",
+    "llm",
+    "cursor",
+    "code-review"
+  ],
+  "author": "bduron",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bduron/semlint.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "packageManager": "pnpm@10.29.2",
   "dependencies": {
     "picomatch": "^4.0.3"
