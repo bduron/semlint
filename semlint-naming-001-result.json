@@ -1,1 +1,0 @@
-{"diagnostics":[{"rule_id":"SEMLINT_NAMING_001","severity":"warn","message":"Variable 'rules_dir' uses snake_case; ambient convention is camelCase (e.g. changedFiles, runnableRules). Use 'rulesDir' instead.","file":"src/main.ts","line":36}]}
