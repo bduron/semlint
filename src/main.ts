@@ -73,6 +73,8 @@ function buildBatchPrompt(rules: LoadedRule[], diff: string): string {
     "- Each diagnostic must reference a changed file from the DIFF.",
     "- rule_id must match one of the RULE_ID values listed below.",
     "- Keep messages concise and actionable.",
+    "- Deduplicate semantically equivalent findings before returning output.",
+    "- When duplicates exist, keep a single diagnostic from the rule that semantically matches the issue best, even if that selected diagnostic has lower severity.",
     "",
     "RULES:",
     ruleBlocks,
