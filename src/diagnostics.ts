@@ -8,12 +8,18 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1;
 }
 
+/**
+ * @param resolveRoot - Directory to resolve diagnostic file paths against (e.g. git repo root).
+ *   Git diff paths are repo-relative; resolving from repo root ensures paths exist when running from subdirs.
+ */
 export function normalizeDiagnostics(
   ruleId: string,
   diagnostics: unknown[],
-  debug: boolean
+  debug: boolean,
+  resolveRoot?: string | null
 ): BackendDiagnostic[] {
   const out: BackendDiagnostic[] = [];
+  const baseDir = resolveRoot && resolveRoot.length > 0 ? resolveRoot : process.cwd();
 
   for (const raw of diagnostics) {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
@@ -49,7 +55,7 @@ export function normalizeDiagnostics(
       continue;
     }
 
-    const absolute = path.resolve(file);
+    const absolute = path.resolve(baseDir, file);
     if (!fs.existsSync(absolute)) {
       if (debug) {
         process.stderr.write(

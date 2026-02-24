@@ -44,6 +44,20 @@ export async function getGitDiff(base: string, head: string): Promise<string> {
   return result.stdout;
 }
 
+/**
+ * Returns the absolute path of the git repository root, or null if not in a git repo.
+ * Used to resolve diagnostic file paths, which are always repo-relative in git diff output.
+ */
+export async function getRepoRoot(): Promise<string | null> {
+  try {
+    const result = await runGitCommand(["rev-parse", "--show-toplevel"]);
+    const root = result.stdout.trim();
+    return root !== "" ? root : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getUntrackedFiles(): Promise<string[]> {
   const result = await runGitCommand(["ls-files", "--others", "--exclude-standard"]);
   return result.stdout

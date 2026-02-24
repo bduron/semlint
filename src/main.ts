@@ -5,7 +5,7 @@ import { createBackendRunner } from "./backend";
 import { loadEffectiveConfig } from "./config";
 import { hasBlockingDiagnostic, normalizeDiagnostics, sortDiagnostics } from "./diagnostics";
 import { shouldRunRule, buildRulePrompt, extractChangedFilesFromDiff, buildScopedDiff } from "./filter";
-import { getGitDiff, getLocalBranchDiff } from "./git";
+import { getGitDiff, getLocalBranchDiff, getRepoRoot } from "./git";
 import { formatJsonOutput, formatTextOutput } from "./reporter";
 import { loadRules } from "./rules";
 import { BackendDiagnostic, CliOptions, LoadedRule } from "./types";
@@ -110,6 +110,8 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     );
     debugLog(config.debug, `Detected ${changedFiles.length} changed file(s)`);
 
+    const repoRoot = await timedAsync(config.debug, "Resolved git repo root", () => getRepoRoot());
+
     const backend = timed(config.debug, "Initialized backend runner", () => createBackendRunner(config));
     const runnableRules = rules.filter((rule) => {
       const filterStartedAt = Date.now();
@@ -192,7 +194,7 @@ export async function runSemlint(options: CliOptions): Promise<number> {
           const normalized = timed(
             config.debug,
             `Batch: diagnostics normalization for ${rule.id}`,
-            () => normalizeDiagnostics(rule.id, groupedByRule.get(rule.id) ?? [], config.debug)
+            () => normalizeDiagnostics(rule.id, groupedByRule.get(rule.id) ?? [], config.debug, repoRoot)
           );
           diagnostics.push(...normalized);
         }
@@ -229,7 +231,7 @@ export async function runSemlint(options: CliOptions): Promise<number> {
             );
 
             normalized = timed(config.debug, `Rule ${rule.id}: diagnostics normalization`, () =>
-              normalizeDiagnostics(rule.id, result.diagnostics, config.debug)
+              normalizeDiagnostics(rule.id, result.diagnostics, config.debug, repoRoot)
             );
           } catch (error) {
             backendError = true;
