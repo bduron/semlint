@@ -13,10 +13,11 @@ const DEFAULTS: EffectiveConfig = {
   base: "origin/main",
   head: "HEAD",
   debug: false,
+  batchMode: false,
   rulesDisable: [],
   severityOverrides: {},
   backendExecutables: {
-    "cursor-cli": "agent"
+    "cursor-cli": "cursor"
   }
 };
 
@@ -107,6 +108,11 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
     base: options.base ?? DEFAULTS.base,
     head: options.head ?? DEFAULTS.head,
     debug: options.debug || DEFAULTS.debug,
+    batchMode:
+      options.batch ??
+      (typeof fileConfig.execution?.batch === "boolean"
+        ? fileConfig.execution.batch
+        : DEFAULTS.batchMode),
     rulesDisable: Array.isArray(fileConfig.rules?.disable)
       ? fileConfig.rules?.disable.filter((item): item is string => typeof item === "string")
       : DEFAULTS.rulesDisable,

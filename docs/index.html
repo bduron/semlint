@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semlint - Semantic Linting for Modern Codebases</title>
+    <meta name="description"
+        content="Semlint is an open-source, deterministic semantic linter that delegates reasoning to an external agentic coding harness.">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Fira Code for code blocks, Inter for body -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                <span class="logo-icon">✨</span>
+                <span class="logo-text">Semlint</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How it Works</a>
+                <a href="https://github.com/bduron/semlint" target="_blank" rel="noopener noreferrer"
+                    class="btn-outline">
+                    <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"
+                        stroke-linecap="round" stroke-linejoin="round" class="github-icon">
+                        <path
+                            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                        </path>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container hero-content">
+            <div class="hero-badge">Open Source Release v0.1.0</div>
+            <h1 class="hero-title">Semantic Linting for Modern Codebases</h1>
+            <p class="hero-subtitle">Write natural language rules to catch what regex can't.<br>Semlint uses your favorite AI agent to enforce architecture, naming, and best practices with zero noise.</p>
+
+            <div class="hero-actions">
+                <div class="code-snippet-box">
+                    <code class="install-cmd">npm install -g semlint</code>
+                    <button class="copy-btn" aria-label="Copy to clipboard"
+                        onclick="navigator.clipboard.writeText('npm install -g semlint')">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
+                            fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                </div>
+                <a href="#quickstart" class="btn-primary">Get Started</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section id="features" class="features-section section-bg">
+            <div class="container">
+                <h2 class="section-title">Why Semlint?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <h3>Agentic Backend</h3>
+                        <p>Leverages LLM agents via standard CLI tools (like <code>cursor-cli</code>). Semlint handles
+                            the orchestration, diffing, and strict JSON output enforcement.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🛡️</div>
+                        <h3>Deterministic & CI-Ready</h3>
+                        <p>No unpredictable hanging. Generates standard linter exit codes (0 for pass, 1 for blocking
+                            issues, 2 for errors) ready for your CI/CD pipelines.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Cost-Effective Batching</h3>
+                        <p>Run all applicable semantic rules in a single LLM pass with <code>--batch</code> mode,
+                            dramatically reducing inference costs and wait times.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌳</div>
+                        <h3>Git-Aware Execution</h3>
+                        <p>Automatically scopes analysis to your local branch changes (tracked, staged, unstaged, and
+                            untracked) or specific git refs.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="how-it-works" class="how-it-works-section">
+            <div class="container">
+                <h2 class="section-title">How It Works</h2>
+
+                <div class="steps-container">
+                    <div class="step-content">
+                        <div class="step-text">
+                            <span class="step-number">1</span>
+                            <h3>Configure your environment</h3>
+                            <p>Create a <code>semlint.json</code> at your project root. Connect it to your preferred
+                                agentic backend.</p>
+                        </div>
+                        <div class="code-window">
+                            <div class="window-header">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                                <span class="window-title">semlint.json</span>
+                            </div>
+                            <pre><code>{
+  "backend": "cursor-cli",
+  "model": "auto",
+  "execution": {
+    "batch": true
+  },
+  "backends": {
+    "cursor-cli": {
+      "executable": "cursor"
+    }
+  }
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="step-content reverse">
+                        <div class="step-text">
+                            <span class="step-number">2</span>
+                            <h3>Define semantic rules</h3>
+                            <p>Add JSON rules in your <code>rules/</code> directory. Use natural language to describe
+                                what the agent should look for.</p>
+                        </div>
+                        <div class="code-window">
+                            <div class="window-header">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                                <span class="window-title">rules/SEMLINT_SWE_003.json</span>
+                            </div>
+                            <pre><code>{
+  "id": "SEMLINT_SWE_003",
+  "title": "Obvious SWE mistakes",
+  "severity_default": "warn",
+  "include_globs": ["src/**/*.ts"],
+  "prompt": "Review ONLY the modified code in the DIFF and find obvious software-engineering mistakes... Focus on dead code, swallowed errors, and unsafe casts."
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="step-content">
+                        <div class="step-text">
+                            <span class="step-number">3</span>
+                            <h3>Run checks locally or in CI</h3>
+                            <p>Semlint filters rules by diff context, builds precise prompts, handles LLM flakiness, and
+                                emits standard diagnostic output.</p>
+                        </div>
+                        <div class="code-window terminal-window">
+                            <div class="window-header">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                                <span class="window-title">bash</span>
+                            </div>
+                            <pre><code><span class="prompt">$</span> semlint check --batch
+
+src/git.ts
+  71:1  <span class="text-warn">warn</span>  SEMLINT_SWE_003  `/dev/null` does not exist on Windows...
+
+<span class="text-error">✖ 1 problem (0 errors, 1 warning)</span></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-left">
+                <div class="logo">
+                    <span class="logo-icon">✨</span>
+                    <span class="logo-text">Semlint</span>
+                </div>
+                <p>An open-source tool for smarter, agentic code validation.</p>
+            </div>
+            <div class="footer-links">
+                <a href="https://github.com/bduron/semlint" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <a href="https://github.com/bduron/semlint/blob/main/LICENSE" target="_blank"
+                    rel="noopener noreferrer">License</a>
+            </div>
+        </div>
+        <div class="container footer-bottom">
+            <p>&copy; 2024 Semlint Contributors. Released under the ISC License.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

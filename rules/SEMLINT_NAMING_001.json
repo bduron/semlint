@@ -1,0 +1,12 @@
+{
+  "id": "SEMLINT_NAMING_001",
+  "title": "Ambient naming convention consistency",
+  "severity_default": "warn",
+  "include_globs": ["src/**/*.ts"],
+  "exclude_globs": ["**/*.test.ts", "**/*.spec.ts"],
+  "diff_regex": [
+    "^[+-].*\\b(const|let|var|function|class|interface|type|enum)\\b",
+    "^[+-].*\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+  ],
+  "prompt": "You are Semlint. Review ONLY the modified code in the provided DIFF and verify naming is consistent with the ambient naming conventions already used in surrounding code. Focus on identifier styles such as camelCase for variables/functions, PascalCase for classes/types/interfaces, and ALL_CAPS for constants where that convention is clearly established nearby. Flag only clear inconsistencies in newly added or renamed identifiers. Ignore untouched legacy naming unless directly impacted by the change. Return valid JSON only with shape {\"diagnostics\":[...]} and each diagnostic must include: rule_id, severity, message, file, line."
+}

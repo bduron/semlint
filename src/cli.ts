@@ -24,7 +24,7 @@ function parseArgs(argv: string[]): CliOptions {
   const [command, ...rest] = argv;
 
   if (!command || command !== "check") {
-    throw new Error("Usage: semlint check [--backend <name>] [--model <name>] [--config <path>] [--format <text|json>] [--base <ref>] [--head <ref>] [--fail-on <error|warn|never>] [--debug]");
+    throw new Error("Usage: semlint check [--backend <name>] [--model <name>] [--config <path>] [--format <text|json>] [--base <ref>] [--head <ref>] [--fail-on <error|warn|never>] [--batch] [--debug]");
   }
 
   const options: CliOptions = {
@@ -36,6 +36,10 @@ function parseArgs(argv: string[]): CliOptions {
     const token = rest[i];
     if (token === "--debug") {
       options.debug = true;
+      continue;
+    }
+    if (token === "--batch") {
+      options.batch = true;
       continue;
     }
 

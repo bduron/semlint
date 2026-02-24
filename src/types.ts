@@ -11,6 +11,7 @@ export interface CliOptions {
   base?: string;
   head?: string;
   failOn?: FailOn;
+  batch?: boolean;
   debug: boolean;
 }
 
@@ -32,6 +33,9 @@ export interface ConfigFile {
     disable?: string[];
     severity_overrides?: Record<string, Severity>;
   };
+  execution?: {
+    batch?: boolean;
+  };
   backends?: Record<
     string,
     {
@@ -49,6 +53,7 @@ export interface EffectiveConfig {
   base: string;
   head: string;
   debug: boolean;
+  batchMode: boolean;
   rulesDisable: string[];
   severityOverrides: Record<string, Severity>;
   backendExecutables: Record<string, string>;
@@ -71,6 +76,12 @@ export interface LoadedRule extends RuleFile {
 
 export interface RunRuleInput {
   ruleId: string;
+  prompt: string;
+  timeoutMs: number;
+}
+
+export interface RunPromptInput {
+  label: string;
   prompt: string;
   timeoutMs: number;
 }

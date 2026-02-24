@@ -1,0 +1,26 @@
+{
+  "backend": "cursor-cli",
+  "model": "composer-1.5",
+  "budgets": {
+    "timeout_ms": 120000
+  },
+  "output": {
+    "format": "text"
+  },
+  "execution": {
+    "batch": false
+  },
+  "rules": {
+    "disable": [],
+    "severity_overrides": {
+      "SEMLINT_NAMING_001": "warn",
+      "SEMLINT_PATTERN_002": "warn",
+      "SEMLINT_SWE_003": "warn"
+    }
+  },
+  "backends": {
+    "cursor-cli": {
+      "executable": "cursor"
+    }
+  }
+}

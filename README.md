@@ -3,7 +3,7 @@
 Semlint is a deterministic semantic lint CLI that:
 
 - reads a git diff,
-- runs enabled semantic rules sequentially,
+- runs enabled semantic rules in parallel,
 - executes an external backend command per rule,
 - prints text or JSON diagnostics,
 - returns CI-friendly exit codes.
@@ -33,10 +33,20 @@ pnpm check
 - `--model <name>`: override model name
 - `--config <path>`: config file path
 - `--format <text|json>`: output format
-- `--base <ref>`: base git ref (default `origin/main`)
-- `--head <ref>`: head git ref (default `HEAD`)
+- `--base <ref>`: base git ref for explicit ref-to-ref diff
+- `--head <ref>`: head git ref for explicit ref-to-ref diff
 - `--fail-on <error|warn|never>`: failure threshold (default `error`)
+- `--batch`: run all selected rules in one backend call
 - `--debug`: enable debug logs to stderr
+
+Default diff behavior (without `--base`/`--head`) uses your local branch state:
+
+- tracked changes across commits since merge-base,
+- staged changes,
+- unstaged changes,
+- untracked files.
+
+If you pass `--base` or `--head`, Semlint uses explicit `git diff <base> <head>` mode.
 
 ## Exit codes
 
@@ -64,6 +74,9 @@ Unknown fields are ignored.
   },
   "output": {
     "format": "text"
+  },
+  "execution": {
+    "batch": false
   },
   "rules": {
     "disable": ["SEMLINT_EXAMPLE_001"],
@@ -103,13 +116,13 @@ Invalid rules cause runtime failure with exit code `2`.
 For backend `cursor-cli`, Semlint executes:
 
 ```bash
-<executable> "<prompt>" --model <model> --print --output-format text
+cursor agent "<prompt>" --model <model> --print --output-format text
 ```
 
-Where `<executable>` resolves from config:
+For `cursor-cli`, Semlint always uses `cursor agent` directly.
+Other backend names still resolve executables from config:
 
-- `backends.cursor-cli.executable` if provided
-- otherwise default `agent`
+- `backends.<backend>.executable` if provided
 
 Backend stdout must be valid JSON with shape:
 
@@ -129,3 +142,21 @@ Backend stdout must be valid JSON with shape:
 
 If parsing fails, Semlint retries once with appended instruction:
 `Return valid JSON only.`
+
+## Batch mode
+
+Use batch mode to reduce cost by evaluating all runnable rules in a single backend call:
+
+```bash
+semlint check --batch
+```
+
+Or configure it in `semlint.json`:
+
+```json
+{
+  "execution": {
+    "batch": true
+  }
+}
+```
