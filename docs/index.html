@@ -44,7 +44,8 @@
         <div class="container hero-content">
             <div class="hero-badge">Open Source Release v0.1.0</div>
             <h1 class="hero-title">Semantic Linting for Modern Codebases</h1>
-            <p class="hero-subtitle">Write natural language rules to catch what regex can't.<br>Semlint uses your favorite AI agent to enforce architecture, naming, and best practices with zero noise.</p>
+            <p class="hero-subtitle">Write natural language rules to catch what regex can't.<br>Semlint uses your
+                favorite AI agent to enforce architecture, naming, and best practices with zero noise.</p>
 
             <div class="hero-actions">
                 <div class="code-snippet-box">
@@ -142,14 +143,15 @@
                                 <span class="dot red"></span>
                                 <span class="dot yellow"></span>
                                 <span class="dot green"></span>
-                                <span class="window-title">rules/SEMLINT_SWE_003.json</span>
+                                <span class="window-title">rules/SEMLINT_NAMING_001.json</span>
                             </div>
                             <pre><code>{
-  "id": "SEMLINT_SWE_003",
-  "title": "Obvious SWE mistakes",
+  "id": "SEMLINT_NAMING_001",
+  "title": "Ambient naming convention consistency",
   "severity_default": "warn",
   "include_globs": ["src/**/*.ts"],
-  "prompt": "Review ONLY the modified code in the DIFF and find obvious software-engineering mistakes... Focus on dead code, swallowed errors, and unsafe casts."
+  "exclude_globs": ["**/*.test.ts", "**/*.spec.ts"],
+  "prompt": "Verify naming is consistent with ambient conventions, infer the convention from the surrounding code."
 }</code></pre>
                         </div>
                     </div>
@@ -170,8 +172,8 @@
                             </div>
                             <pre><code><span class="prompt">$</span> semlint check --batch
 
-src/git.ts
-  71:1  <span class="text-warn">warn</span>  SEMLINT_SWE_003  `/dev/null` does not exist on Windows...
+src/main.ts
+  64:1  <span class="text-warn">warn</span>  SEMLINT_NAMING_001  Variable 'rules_dir' uses snake_case; ambient convention is camelCase (e.g. changedFiles, runnableRules). Use 'rulesDir' instead.
 
 <span class="text-error">✖ 1 problem (0 errors, 1 warning)</span></code></pre>
                         </div>
