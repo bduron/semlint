@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import pc from "picocolors";
 import { scaffoldConfig } from "./init";
 import { runSemlint } from "./main";
 import { CliOptions, FailOn, OutputFormat } from "./types";
@@ -11,7 +12,7 @@ const HELP_TEXT = [
   "",
   "Commands:",
   "  check   Run semantic lint rules against your git diff",
-  "  init    Create semlint.json with auto-detected agent backend",
+  "  init    Create semlint.json, .semlint/rules/, and an example rule to edit",
   "",
   "Options:",
   "  -h, --help   Show this help text"
@@ -137,8 +138,13 @@ async function main(): Promise<void> {
     process.exitCode = exitCode;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${message}\n`);
-    process.exitCode = error instanceof HelpRequestedError ? 0 : 2;
+    if (error instanceof HelpRequestedError) {
+      process.stderr.write(`${message}\n`);
+      process.exitCode = 0;
+    } else {
+      process.stderr.write(pc.red(`Error: ${message}\n`));
+      process.exitCode = 2;
+    }
   }
 }
 

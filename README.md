@@ -115,11 +115,11 @@ This creates `./semlint.json` and auto-detects installed coding agent CLIs in th
 
 If no known CLI is detected, Semlint falls back to `cursor-cli` + executable `cursor`.
 
-Use `semlint init --force` to overwrite an existing config file.
+Use `semlint init --force` to overwrite an existing config file. Init also creates `.semlint/rules/` and a starter rule `SEMLINT_EXAMPLE_001.json` (with a placeholder title and prompt) if they do not exist.
 
 ## Rule files
 
-Rule JSON files are loaded from `rules/`.
+Rule JSON files are loaded from `.semlint/rules/`. Run `semlint init` to create this folder and an example rule you can edit.
 
 Required fields:
 

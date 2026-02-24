@@ -1,4 +1,12 @@
+import pc from "picocolors";
 import { BackendDiagnostic, CanonicalJsonReport, RunStats } from "./types";
+
+function formatSeverity(severity: string) {
+  if (severity === "error") return pc.red(severity);
+  if (severity === "warn") return pc.yellow(severity);
+  if (severity === "info") return pc.cyan(severity);
+  return severity;
+}
 
 export function formatJsonOutput(
   version: string,
@@ -20,7 +28,7 @@ export function formatJsonOutput(
   return JSON.stringify(payload, null, 2);
 }
 
-export function formatTextOutput(diagnostics: BackendDiagnostic[]): string {
+export function formatTextOutput(diagnostics: BackendDiagnostic[], stats: RunStats): string {
   const lines: string[] = [];
   let currentFile = "";
 
@@ -30,12 +38,12 @@ export function formatTextOutput(diagnostics: BackendDiagnostic[]): string {
         lines.push("");
       }
       currentFile = diagnostic.file;
-      lines.push(currentFile);
+      lines.push(pc.underline(currentFile));
     }
 
     const column = diagnostic.column ?? 1;
     lines.push(
-      `  ${diagnostic.line}:${column}  ${diagnostic.severity}  ${diagnostic.rule_id}  ${diagnostic.message}`
+      `  ${pc.dim(`${diagnostic.line}:${column}`)}  ${formatSeverity(diagnostic.severity)}  ${pc.gray(diagnostic.rule_id)}  ${diagnostic.message}`
     );
   }
 
@@ -46,7 +54,25 @@ export function formatTextOutput(diagnostics: BackendDiagnostic[]): string {
   if (lines.length > 0) {
     lines.push("");
   }
-  lines.push(`✖ ${problems} problems (${errors} errors, ${warnings} warnings)`);
+  
+  const summary = `✖ ${problems} problems (${errors} errors, ${warnings} warnings)`;
+  const timeInfo = ` in ${(stats.durationMs / 1000).toFixed(1)}s`;
+
+  if (problems === 0) {
+    if (stats.rulesRun === 0) {
+      lines.push(pc.green(`✔ 0 problems (no rules matched changed files)`));
+    } else {
+      lines.push(pc.green(`✔ 0 problems (0 errors, 0 warnings)`));
+    }
+  } else if (errors > 0) {
+    lines.push(pc.red(summary) + pc.gray(timeInfo));
+  } else {
+    lines.push(pc.yellow(summary) + pc.gray(timeInfo));
+  }
+
+  if (problems === 0 && stats.durationMs > 0) {
+    lines[lines.length - 1] += pc.gray(timeInfo);
+  }
 
   return lines.join("\n");
 }

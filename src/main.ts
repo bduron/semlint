@@ -1,3 +1,5 @@
+import pc from "picocolors";
+import { createSpinner, Spinner } from "nanospinner";
 import path from "node:path";
 import { createBackendRunner } from "./backend";
 import { loadEffectiveConfig } from "./config";
@@ -12,7 +14,7 @@ const VERSION = "0.1.0";
 
 function debugLog(enabled: boolean, message: string): void {
   if (enabled) {
-    process.stderr.write(`[debug] ${message}\n`);
+    process.stderr.write(`${pc.gray(`[debug] ${message}`)}\n`);
   }
 }
 
@@ -44,10 +46,33 @@ function buildBatchPrompt(rules: LoadedRule[], diff: string): string {
     .join("\n\n---\n\n");
 
   return [
+    "You are Semlint, an expert semantic code reviewer.",
     "BATCH_MODE: true",
     "Evaluate all rules below against the DIFF in one pass.",
-    "Return valid JSON only with shape {\"diagnostics\":[...]}",
-    "Each diagnostic must include: rule_id, severity, message, file, line.",
+    "Analyze ONLY the modified code present in the DIFF below.",
+    "Return JSON only (no markdown, no prose, no code fences).",
+    "Output schema:",
+    "{",
+    "  \"diagnostics\": [",
+    "    {",
+    "      \"rule_id\": string,",
+    "      \"severity\": \"error\" | \"warn\" | \"info\",",
+    "      \"message\": string,",
+    "      \"file\": string,",
+    "      \"line\": number,",
+    "      \"column\"?: number,",
+    "      \"end_line\"?: number,",
+    "      \"end_column\"?: number,",
+    "      \"evidence\"?: string,",
+    "      \"confidence\"?: number",
+    "    }",
+    "  ]",
+    "}",
+    "Rules:",
+    "- If there are no findings, return {\"diagnostics\":[]}.",
+    "- Each diagnostic must reference a changed file from the DIFF.",
+    "- rule_id must match one of the RULE_ID values listed below.",
+    "- Keep messages concise and actionable.",
     "",
     "RULES:",
     ruleBlocks,
@@ -59,9 +84,10 @@ function buildBatchPrompt(rules: LoadedRule[], diff: string): string {
 
 export async function runSemlint(options: CliOptions): Promise<number> {
   const startedAt = Date.now();
+  let spinner: Spinner | null = null;
   try {
     const config = timed(options.debug, "Loaded effective config", () => loadEffectiveConfig(options));
-    const rulesDir = path.join(process.cwd(), "rules");
+    const rulesDir = path.join(process.cwd(), ".semlint", "rules");
     const rules = timed(config.debug, "Loaded and validated rules", () =>
       loadRules(rulesDir, config.rulesDisable, config.severityOverrides)
     );
@@ -99,6 +125,23 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     const diagnostics: BackendDiagnostic[] = [];
     const rulesRun = runnableRules.length;
     let backendErrors = 0;
+
+    if (config.format !== "json" && rulesRun > 0) {
+      process.stdout.write(`${pc.bold("Running rules:")}\n`);
+      for (const rule of runnableRules) {
+        process.stdout.write(`  ${pc.cyan(rule.id)} ${pc.dim(rule.title)}\n`);
+      }
+      process.stdout.write("\n");
+    }
+
+    spinner =
+      config.format !== "json" && rulesRun > 0
+        ? createSpinner(
+            `Analyzing ${changedFiles.length} file${changedFiles.length === 1 ? "" : "s"} with ${config.backend} in ${
+              config.batchMode ? "batch" : "parallel"
+            } mode...`
+          ).start()
+        : null;
 
     if (config.batchMode && runnableRules.length > 0) {
       debugLog(config.debug, `Running ${runnableRules.length} rule(s) in batch mode`);
@@ -210,13 +253,21 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     const sorted = timed(config.debug, "Sorted diagnostics", () => sortDiagnostics(diagnostics));
     const durationMs = Date.now() - startedAt;
 
+    if (spinner) {
+      if (backendErrors > 0) {
+        spinner.error({ text: "Analysis completed with backend errors" });
+      } else {
+        spinner.success({ text: "Analysis complete" });
+      }
+    }
+
     const outputStartedAt = Date.now();
     if (config.format === "json") {
       process.stdout.write(
         `${formatJsonOutput(VERSION, sorted, { rulesRun, durationMs, backendErrors })}\n`
       );
     } else {
-      process.stdout.write(`${formatTextOutput(sorted)}\n`);
+      process.stdout.write(`${formatTextOutput(sorted, { rulesRun, durationMs, backendErrors })}\n`);
     }
     debugLog(config.debug, `Rendered output in ${Date.now() - outputStartedAt}ms`);
     debugLog(config.debug, `Total run duration ${durationMs}ms`);
@@ -229,6 +280,9 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     }
     return 0;
   } catch (error) {
+    if (spinner) {
+      spinner.error({ text: "Analysis failed" });
+    }
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);
     return 2;

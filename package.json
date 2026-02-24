@@ -1,6 +1,6 @@
 {
   "name": "semlint-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Semantic lint CLI — runs LLM-backed rules on your git diff and returns CI-friendly exit codes",
   "type": "commonjs",
   "main": "dist/main.js",
@@ -40,6 +40,8 @@
   },
   "packageManager": "pnpm@10.29.2",
   "dependencies": {
+    "nanospinner": "^1.2.2",
+    "picocolors": "^1.1.1",
     "picomatch": "^4.0.3"
   },
   "devDependencies": {
