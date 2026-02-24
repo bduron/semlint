@@ -44,32 +44,6 @@ export async function getGitDiff(base: string, head: string): Promise<string> {
   return result.stdout;
 }
 
-function isMissingRefError(message: string): boolean {
-  return /(not a valid object name|unknown revision|bad revision|no upstream configured|no upstream branch)/i.test(
-    message
-  );
-}
-
-async function resolveLocalComparisonBase(): Promise<string> {
-  const candidates = ["@{upstream}", "origin/main", "main"];
-  for (const candidate of candidates) {
-    try {
-      const result = await runGitCommand(["merge-base", "HEAD", candidate]);
-      const mergeBase = result.stdout.trim();
-      if (mergeBase !== "") {
-        return mergeBase;
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!isMissingRefError(message)) {
-        throw error;
-      }
-      continue;
-    }
-  }
-  return "HEAD";
-}
-
 async function getUntrackedFiles(): Promise<string[]> {
   const result = await runGitCommand(["ls-files", "--others", "--exclude-standard"]);
   return result.stdout
@@ -83,9 +57,16 @@ async function getNoIndexDiffForFile(filePath: string): Promise<string> {
   return result.stdout;
 }
 
+/**
+ * Returns the diff for the current branch limited to:
+ * - Staged changes (--cached: index vs HEAD)
+ * - Unstaged changes (working tree vs index)
+ * - Untracked files (as full-file diffs)
+ * Does not include already-committed changes on the branch.
+ */
 export async function getLocalBranchDiff(): Promise<string> {
-  const base = await resolveLocalComparisonBase();
-  const trackedDiff = await runGitCommand(["diff", base]);
+  const stagedResult = await runGitCommand(["diff", "--cached"]);
+  const unstagedResult = await runGitCommand(["diff"]);
   const untrackedFiles = await getUntrackedFiles();
 
   const untrackedDiffChunks: string[] = [];
@@ -96,5 +77,7 @@ export async function getLocalBranchDiff(): Promise<string> {
     }
   }
 
-  return [trackedDiff.stdout, ...untrackedDiffChunks].filter((chunk) => chunk !== "").join("\n");
+  return [stagedResult.stdout, unstagedResult.stdout, ...untrackedDiffChunks]
+    .filter((chunk) => chunk !== "")
+    .join("\n");
 }

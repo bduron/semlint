@@ -105,7 +105,7 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     debugLog(
       config.debug,
       useLocalBranchDiff
-        ? "Using local branch diff (tracked + staged + unstaged + untracked)"
+        ? "Using local branch diff (staged + unstaged + untracked only)"
         : `Using explicit ref diff (${config.base}..${config.head})`
     );
     debugLog(config.debug, `Detected ${changedFiles.length} changed file(s)`);
