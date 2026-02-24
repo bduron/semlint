@@ -49,9 +49,9 @@
 
             <div class="hero-actions">
                 <div class="code-snippet-box">
-                    <code class="install-cmd">npm install -g semlint</code>
+                    <code class="install-cmd">npm install semlint-cli</code>
                     <button class="copy-btn" aria-label="Copy to clipboard"
-                        onclick="navigator.clipboard.writeText('npm install -g semlint')">
+                        onclick="navigator.clipboard.writeText('npm install semlint-cli')">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
                             fill="none" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -170,7 +170,7 @@
                                 <span class="dot green"></span>
                                 <span class="window-title">bash</span>
                             </div>
-                            <pre><code><span class="prompt">$</span> semlint check --batch
+                            <pre><code><span class="prompt">$</span> semlint-cli check --batch
 
 src/main.ts
   64:1  <span class="text-warn">warn</span>  SEMLINT_NAMING_001  Variable 'rules_dir' uses snake_case; ambient convention is camelCase (e.g. changedFiles, runnableRules). Use 'rulesDir' instead.
