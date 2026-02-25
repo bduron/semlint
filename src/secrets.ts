@@ -97,7 +97,8 @@ export function filterDiffByIgnoreRules(
   cwd: string,
   ignoreFiles: string[]
 ): { filteredDiff: string; excludedFiles: string[] } {
-  const ignorePatterns = [...readIgnorePatterns(cwd, ignoreFiles), ...BUILTIN_SENSITIVE_GLOBS];
+  // Keep built-ins first so repo-specific negation patterns can carve out safe exceptions.
+  const ignorePatterns = [...BUILTIN_SENSITIVE_GLOBS, ...readIgnorePatterns(cwd, ignoreFiles)];
   const ignoreMatcher = createIgnoreMatcher(ignorePatterns);
   const chunks = splitDiffIntoFileChunks(diff);
 

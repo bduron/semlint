@@ -1,10 +1,17 @@
 import { spawn } from "node:child_process";
 import { devNull } from "node:os";
+import { DiffFileKind } from "./types";
 
 interface GitCommandResult {
   code: number;
   stdout: string;
   stderr: string;
+}
+
+export interface LocalBranchDiffParts {
+  stagedDiff: string;
+  unstagedDiff: string;
+  untrackedDiffs: string[];
 }
 
 function runGitCommand(args: string[], okExitCodes: number[] = [0]): Promise<GitCommandResult> {
@@ -78,20 +85,54 @@ async function getNoIndexDiffForFile(filePath: string): Promise<string> {
  * - Untracked files (as full-file diffs)
  * Does not include already-committed changes on the branch.
  */
-export async function getLocalBranchDiff(): Promise<string> {
-  const stagedResult = await runGitCommand(["diff", "--cached"]);
-  const unstagedResult = await runGitCommand(["diff"]);
-  const untrackedFiles = await getUntrackedFiles();
+export async function getLocalBranchDiff(
+  fileKinds: DiffFileKind[] = ["staged", "unstaged", "untracked"]
+): Promise<string> {
+  const parts: LocalBranchDiffParts = {
+    stagedDiff: "",
+    unstagedDiff: "",
+    untrackedDiffs: []
+  };
 
-  const untrackedDiffChunks: string[] = [];
-  for (const filePath of untrackedFiles) {
-    const fileDiff = await getNoIndexDiffForFile(filePath);
-    if (fileDiff.trim() !== "") {
-      untrackedDiffChunks.push(fileDiff);
+  if (fileKinds.includes("staged")) {
+    const stagedResult = await runGitCommand(["diff", "--cached"]);
+    parts.stagedDiff = stagedResult.stdout;
+  }
+
+  if (fileKinds.includes("unstaged")) {
+    const unstagedResult = await runGitCommand(["diff"]);
+    parts.unstagedDiff = unstagedResult.stdout;
+  }
+
+  if (fileKinds.includes("untracked")) {
+    const untrackedFiles = await getUntrackedFiles();
+    for (const filePath of untrackedFiles) {
+      const fileDiff = await getNoIndexDiffForFile(filePath);
+      if (fileDiff.trim() !== "") {
+        parts.untrackedDiffs.push(fileDiff);
+      }
     }
   }
 
-  return [stagedResult.stdout, unstagedResult.stdout, ...untrackedDiffChunks]
-    .filter((chunk) => chunk !== "")
-    .join("\n");
+  return selectLocalBranchDiffChunks(parts, fileKinds);
+}
+
+export function selectLocalBranchDiffChunks(
+  parts: LocalBranchDiffParts,
+  fileKinds: DiffFileKind[] = ["staged", "unstaged", "untracked"]
+): string {
+  const selectedKinds = new Set(fileKinds);
+  const chunks: string[] = [];
+
+  if (selectedKinds.has("staged") && parts.stagedDiff !== "") {
+    chunks.push(parts.stagedDiff);
+  }
+  if (selectedKinds.has("unstaged") && parts.unstagedDiff !== "") {
+    chunks.push(parts.unstagedDiff);
+  }
+  if (selectedKinds.has("untracked")) {
+    chunks.push(...parts.untrackedDiffs.filter((chunk) => chunk !== ""));
+  }
+
+  return chunks.join("\n");
 }

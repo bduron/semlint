@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getRuleCandidateFiles } from "./filter";
+import { filterDiffByPathGlobs, getRuleCandidateFiles } from "./filter";
 import { LoadedRule } from "./types";
 
 function makeRule(overrides: Partial<LoadedRule> = {}): LoadedRule {
@@ -55,4 +55,52 @@ test("getRuleCandidateFiles uses explicit rule globs instead of globals", () => 
   const candidates = getRuleCandidateFiles(rule, changedFiles, ["src/**/*.ts"], []);
 
   assert.deepEqual(candidates, ["docs/readme.md"]);
+});
+
+test("filterDiffByPathGlobs applies include and exclude globs", () => {
+  const diff = [
+    "diff --git a/src/a.ts b/src/a.ts",
+    "--- a/src/a.ts",
+    "+++ b/src/a.ts",
+    "@@ -0,0 +1 @@",
+    "+const a = 1;",
+    "diff --git a/src/a.test.ts b/src/a.test.ts",
+    "--- a/src/a.test.ts",
+    "+++ b/src/a.test.ts",
+    "@@ -0,0 +1 @@",
+    "+const test = 1;",
+    "diff --git a/docs/readme.md b/docs/readme.md",
+    "--- a/docs/readme.md",
+    "+++ b/docs/readme.md",
+    "@@ -0,0 +1 @@",
+    "+# docs"
+  ].join("\n");
+
+  const result = filterDiffByPathGlobs(diff, ["src/**/*.ts"], ["**/*.test.ts"]);
+
+  assert.match(result.filteredDiff, /src\/a\.ts/);
+  assert.doesNotMatch(result.filteredDiff, /src\/a\.test\.ts/);
+  assert.doesNotMatch(result.filteredDiff, /docs\/readme\.md/);
+  assert.deepEqual(result.excludedFiles, ["docs/readme.md", "src/a.test.ts"]);
+});
+
+test("filterDiffByPathGlobs keeps all files when include/exclude are empty", () => {
+  const diff = [
+    "diff --git a/src/a.ts b/src/a.ts",
+    "--- a/src/a.ts",
+    "+++ b/src/a.ts",
+    "@@ -0,0 +1 @@",
+    "+const a = 1;",
+    "diff --git a/docs/readme.md b/docs/readme.md",
+    "--- a/docs/readme.md",
+    "+++ b/docs/readme.md",
+    "@@ -0,0 +1 @@",
+    "+# docs"
+  ].join("\n");
+
+  const result = filterDiffByPathGlobs(diff, [], []);
+
+  assert.match(result.filteredDiff, /src\/a\.ts/);
+  assert.match(result.filteredDiff, /docs\/readme\.md/);
+  assert.deepEqual(result.excludedFiles, []);
 });

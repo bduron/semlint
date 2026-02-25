@@ -57,7 +57,6 @@ pnpm check
 
 Default diff behavior (without `--base`/`--head`) uses your local branch state:
 
-- tracked changes across commits since merge-base,
 - staged changes,
 - unstaged changes,
 - untracked files.
@@ -66,6 +65,8 @@ If you pass `--base` or `--head`, Semlint uses explicit `git diff <base> <head>`
 
 Before backend execution, Semlint shows the included and excluded diff files and asks for confirmation by default.
 Use `--yes` / `-y` to skip this prompt.
+
+You can configure local diff selection and path filtering via `diff.file_kinds`, `diff.include_globs`, and `diff.exclude_globs` in `semlint.json`.
 
 ## Exit codes
 
@@ -96,6 +97,11 @@ Unknown fields are ignored.
   "execution": {
     "batch": false
   },
+  "diff": {
+    "file_kinds": ["staged", "unstaged", "untracked"],
+    "include_globs": [],
+    "exclude_globs": []
+  },
   "security": {
     "secret_guard": true,
     "allow_patterns": [],
@@ -117,6 +123,26 @@ Unknown fields are ignored.
   }
 }
 ```
+
+## Diff management
+
+Use the `diff` section to control which local change kinds and file paths are included:
+
+```json
+{
+  "diff": {
+    "file_kinds": ["staged", "unstaged", "untracked"],
+    "include_globs": ["src/**/*.ts"],
+    "exclude_globs": ["**/*.test.ts"]
+  }
+}
+```
+
+- `file_kinds`: local diff sources included by default (`staged`, `unstaged`, `untracked`)
+- `include_globs`: optional allowlist of changed files to keep
+- `exclude_globs`: optional denylist applied after include globs (exclude wins)
+
+`diff.*` settings are applied before security ignore filtering and secret scanning.
 
 ## Config scaffolding and auto-detection
 

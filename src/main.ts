@@ -8,7 +8,7 @@ import { createBackendRunner } from "./backend";
 import { loadEffectiveConfig } from "./config";
 import { hasBlockingDiagnostic, sortDiagnostics } from "./diagnostics";
 import { runBatchDispatch, runParallelDispatch } from "./dispatch";
-import { shouldRunRule, extractChangedFilesFromDiff } from "./filter";
+import { shouldRunRule, extractChangedFilesFromDiff, filterDiffByPathGlobs } from "./filter";
 import { getGitDiff, getLocalBranchDiff, getRepoRoot } from "./git";
 import { formatJsonOutput, formatTextOutput } from "./reporter";
 import { loadRules } from "./rules";
@@ -121,10 +121,20 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     const scanRoot = repoRoot ?? process.cwd();
     debugLog(config.debug, `Using diff/ignore scan root: ${scanRoot}`);
     const rawDiff = await timedAsync(config.debug, "Computed git diff", () =>
-      useLocalBranchDiff ? getLocalBranchDiff() : getGitDiff(config.base, config.head)
+      useLocalBranchDiff ? getLocalBranchDiff(config.diff.fileKinds) : getGitDiff(config.base, config.head)
     );
-    const { filteredDiff: diff, excludedFiles } = timed(config.debug, "Filtered diff by ignore rules", () =>
-      filterDiffByIgnoreRules(rawDiff, scanRoot, config.security.ignoreFiles)
+    const { filteredDiff: globFilteredDiff, excludedFiles: globExcludedFiles } = timed(
+      config.debug,
+      "Filtered diff by configured include/exclude globs",
+      () => filterDiffByPathGlobs(rawDiff, config.diff.includeGlobs, config.diff.excludeGlobs)
+    );
+    const { filteredDiff: diff, excludedFiles: ignoreExcludedFiles } = timed(
+      config.debug,
+      "Filtered diff by ignore rules",
+      () => filterDiffByIgnoreRules(globFilteredDiff, scanRoot, config.security.ignoreFiles)
+    );
+    const excludedFiles = Array.from(new Set([...globExcludedFiles, ...ignoreExcludedFiles])).sort((a, b) =>
+      a.localeCompare(b)
     );
     if (excludedFiles.length > 0) {
       debugLog(

@@ -24,6 +24,39 @@ export function extractChangedFilesFromDiff(diff: string): string[] {
   return Array.from(files);
 }
 
+export function filterDiffByPathGlobs(
+  diff: string,
+  includeGlobs: string[] = [],
+  excludeGlobs: string[] = []
+): { filteredDiff: string; excludedFiles: string[] } {
+  const chunks = splitDiffIntoFileChunks(diff);
+  const includeMatcher = includeGlobs.length > 0 ? picomatch(includeGlobs) : null;
+  const excludeMatcher = excludeGlobs.length > 0 ? picomatch(excludeGlobs) : null;
+  const excludedFiles: string[] = [];
+
+  const filteredDiff = chunks
+    .filter((chunk) => {
+      if (chunk.file === "") {
+        return true;
+      }
+
+      const included = includeMatcher ? includeMatcher(chunk.file) : true;
+      const excluded = excludeMatcher ? excludeMatcher(chunk.file) : false;
+      const keep = included && !excluded;
+      if (!keep) {
+        excludedFiles.push(chunk.file);
+      }
+      return keep;
+    })
+    .map((chunk) => chunk.chunk)
+    .join("\n");
+
+  return {
+    filteredDiff,
+    excludedFiles: Array.from(new Set(excludedFiles)).sort((a, b) => a.localeCompare(b))
+  };
+}
+
 function matchesAnyRegex(diff: string, regexes: string[]): boolean {
   for (const candidate of regexes) {
     try {

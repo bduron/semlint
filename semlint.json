@@ -9,6 +9,11 @@
   "execution": {
     "batch": false
   },
+  "diff": {
+    "file_kinds": ["staged", "unstaged", "untracked"],
+    "include_globs": ["src/**"],
+    "exclude_globs": []
+  },
   "security": {
     "secret_guard": true,
     "allow_patterns": [],
@@ -16,7 +21,8 @@
       "src/cli.ts",
       "src/secrets.test.ts",
       "src/secrets.ts",
-      "semlint.json"
+      "semlint.json",
+      "README.md"
     ],
     "ignore_files": [".gitignore", ".cursorignore", ".semlintignore"]
   },

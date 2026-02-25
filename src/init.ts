@@ -105,6 +105,11 @@ export function scaffoldConfig(force = false): number {
     execution: {
       batch: false
     },
+    diff: {
+      file_kinds: ["staged", "unstaged", "untracked"] as string[],
+      include_globs: ["src/**"] as string[],
+      exclude_globs: [] as string[]
+    },
     security: {
       secret_guard: true,
       allow_patterns: [] as string[],

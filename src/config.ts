@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CliOptions, ConfigFile, EffectiveConfig, Severity } from "./types";
+import { CliOptions, ConfigFile, DiffFileKind, EffectiveConfig, Severity } from "./types";
 import { VALID_SEVERITIES } from "./utils";
+
+const VALID_DIFF_FILE_KINDS = new Set<DiffFileKind>(["staged", "unstaged", "untracked"]);
 
 const DEFAULTS: EffectiveConfig = {
   backend: "cursor-cli",
@@ -13,6 +15,11 @@ const DEFAULTS: EffectiveConfig = {
   head: "HEAD",
   debug: false,
   batchMode: false,
+  diff: {
+    fileKinds: ["staged", "unstaged", "untracked"],
+    includeGlobs: [],
+    excludeGlobs: []
+  },
   rulesDisable: [],
   severityOverrides: {},
   rulesIncludeGlobs: [],
@@ -169,6 +176,19 @@ function sanitizeGlobList(value: unknown): string[] {
   });
 }
 
+function sanitizeDiffFileKinds(value: unknown): DiffFileKind[] {
+  if (!Array.isArray(value)) {
+    return [...DEFAULTS.diff.fileKinds];
+  }
+  return value.flatMap((candidate) => {
+    if (typeof candidate !== "string") {
+      return [];
+    }
+    const normalized = candidate.trim() as DiffFileKind;
+    return VALID_DIFF_FILE_KINDS.has(normalized) ? [normalized] : [];
+  });
+}
+
 function ensureSelectedBackendIsConfigured(
   backend: string,
   backendConfigs: Record<string, { executable: string; args: string[]; model?: string }>
@@ -209,6 +229,11 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
       (typeof fileConfig.execution?.batch === "boolean"
         ? fileConfig.execution.batch
         : DEFAULTS.batchMode),
+    diff: {
+      fileKinds: sanitizeDiffFileKinds(fileConfig.diff?.file_kinds),
+      includeGlobs: sanitizeGlobList(fileConfig.diff?.include_globs),
+      excludeGlobs: sanitizeGlobList(fileConfig.diff?.exclude_globs)
+    },
     rulesDisable: Array.isArray(fileConfig.rules?.disable)
       ? fileConfig.rules?.disable.filter((item): item is string => typeof item === "string")
       : DEFAULTS.rulesDisable,

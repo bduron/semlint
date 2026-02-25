@@ -1,6 +1,7 @@
 export type Severity = "error" | "warn" | "info";
 export type OutputFormat = "text" | "json";
 export type FailOn = "error" | "warn" | "never";
+export type DiffFileKind = "staged" | "unstaged" | "untracked";
 
 export interface CliOptions {
   command: "check" | "init" | "security";
@@ -39,6 +40,11 @@ export interface ConfigFile {
   execution?: {
     batch?: boolean;
   };
+  diff?: {
+    file_kinds?: DiffFileKind[];
+    include_globs?: string[];
+    exclude_globs?: string[];
+  };
   backends?: Record<
     string,
     {
@@ -65,6 +71,11 @@ export interface EffectiveConfig {
   head: string;
   debug: boolean;
   batchMode: boolean;
+  diff: {
+    fileKinds: DiffFileKind[];
+    includeGlobs: string[];
+    excludeGlobs: string[];
+  };
   rulesDisable: string[];
   severityOverrides: Record<string, Severity>;
   rulesIncludeGlobs: string[];
