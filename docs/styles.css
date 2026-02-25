@@ -167,7 +167,7 @@ a:hover {
 
 /* --- Hero Section --- */
 .hero {
-  padding: 120px 0 100px;
+  padding: 120px 0 0;
   text-align: center;
   background: radial-gradient(circle at 50% 0%, var(--bg-tertiary) 0%, var(--bg-primary) 70%);
   border-bottom: 1px solid var(--border-color);
@@ -513,4 +513,52 @@ footer {
     flex-direction: column;
     gap: 32px;
   }
+}
+
+/* --- Hero Integrations (fade-out band) --- */
+.hero-integrations {
+  margin-top: 64px;
+  padding: 32px 24px 36px;
+  text-align: center;
+  background: linear-gradient(to bottom, transparent, rgba(22, 27, 34, 0.6));
+}
+
+.hero-integrations .integration-text {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 500;
+}
+
+.hero-integrations .integration-logos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 28px;
+  align-items: center;
+}
+
+.hero-integrations .logo-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.3s;
+}
+
+.hero-integrations .logo-item:hover {
+  color: var(--text-secondary);
+}
+
+.hero-integrations .logo-item svg {
+  opacity: 0.45;
+  transition: opacity 0.3s;
+}
+
+.hero-integrations .logo-item:hover svg {
+  opacity: 0.75;
 }

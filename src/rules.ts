@@ -10,7 +10,7 @@ function assertNonEmptyString(value: unknown, fieldName: string, filePath: strin
   return value;
 }
 
-function assertStringArray(value: unknown, fieldName: string, filePath: string): string[] | undefined {
+function assert_string_array(value: unknown, fieldName: string, filePath: string): string[] | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -36,9 +36,9 @@ function validateRuleObject(raw: unknown, filePath: string): RuleFile {
     title: assertNonEmptyString(obj.title, "title", filePath),
     severity_default: severity as Severity,
     prompt: assertNonEmptyString(obj.prompt, "prompt", filePath),
-    include_globs: assertStringArray(obj.include_globs, "include_globs", filePath),
-    exclude_globs: assertStringArray(obj.exclude_globs, "exclude_globs", filePath),
-    diff_regex: assertStringArray(obj.diff_regex, "diff_regex", filePath)
+    include_globs: assert_string_array(obj.include_globs, "include_globs", filePath),
+    exclude_globs: assert_string_array(obj.exclude_globs, "exclude_globs", filePath),
+    diff_regex: assert_string_array(obj.diff_regex, "diff_regex", filePath)
   };
 }
 
