@@ -16,17 +16,21 @@ const BUILTIN_SENSITIVE_GLOBS = [
   "**/*credentials*.json"
 ];
 
-const SECRET_DETECTORS: Array<{ kind: string; pattern: RegExp }> = [
-  { kind: "private_key_block", pattern: /BEGIN [A-Z ]*PRIVATE KEY/i },
-  { kind: "openai_key", pattern: /sk-[A-Za-z0-9]{20,}/ },
-  { kind: "anthropic_key", pattern: /sk-ant-[A-Za-z0-9\-_]{20,}/i },
-  { kind: "github_token", pattern: /ghp_[A-Za-z0-9]{36}/ },
-  { kind: "aws_access_key_id", pattern: /AKIA[0-9A-Z]{16}/ },
-  {
-    kind: "generic_secret_assignment",
-    pattern:
-      /(api[_-]?key|secret|token|password|passwd|private[_-]?key)\s*[:=]\s*["']?[A-Za-z0-9_\-\/+=]{8,}/i
-  }
+const SECRET_KEYWORDS = [
+  "password",
+  "passwd",
+  "secret",
+  "token",
+  "api_key",
+  "apikey",
+  "private key",
+  "certificate",
+  "cert",
+  "sk-",
+  "sk_",
+  "ghp_",
+  "akia",
+  "key"
 ];
 
 function readIgnorePatterns(cwd: string, ignoreFiles: string[]): string[] {
@@ -49,19 +53,6 @@ function redactSample(sample: string): string {
     return "***";
   }
   return `${compact.slice(0, 2)}***${compact.slice(-2)}`;
-}
-
-function extractHighEntropyToken(line: string): string | undefined {
-  const matches = line.match(/[A-Za-z0-9+/_=-]{32,}/g) ?? [];
-  for (const token of matches) {
-    const hasLower = /[a-z]/.test(token);
-    const hasUpper = /[A-Z]/.test(token);
-    const hasDigit = /[0-9]/.test(token);
-    if (hasLower && hasUpper && hasDigit) {
-      return token;
-    }
-  }
-  return undefined;
 }
 
 function parseAllowMatchers(patterns: string[]): RegExp[] {
@@ -125,15 +116,14 @@ export function scanDiffForSecrets(diff: string, allowPatterns: string[]): Secre
       const added = line.slice(1);
       const allowed = allowMatchers.some((matcher) => matcher.test(added));
       if (!allowed) {
-        const detector = SECRET_DETECTORS.find((entry) => entry.pattern.test(added));
-        const detectedValue = detector ? (added.match(detector.pattern)?.[0] ?? added) : undefined;
-        const highEntropy = detector ? undefined : extractHighEntropyToken(added);
-        if (detectedValue || highEntropy) {
+        const lowered = added.toLowerCase();
+        const matchedKeyword = SECRET_KEYWORDS.find((keyword) => lowered.includes(keyword));
+        if (matchedKeyword) {
           findings.push({
             file: currentFile,
             line: newLine,
-            kind: detector?.kind ?? "high_entropy_token",
-            redactedSample: redactSample(detectedValue ?? highEntropy ?? added)
+            kind: `keyword:${matchedKeyword}`,
+            redactedSample: redactSample(added)
           });
         }
       }

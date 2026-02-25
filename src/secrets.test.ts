@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { filterDiffByIgnoreRules } from "./secrets";
+import { filterDiffByIgnoreRules, scanDiffForSecrets } from "./secrets";
 
 test("filterDiffByIgnoreRules aggregates ignore files", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "semlint-ignore-"));
@@ -53,4 +53,20 @@ test("filterDiffByIgnoreRules aggregates ignore files", () => {
   } finally {
     fs.rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+test("scanDiffForSecrets flags keyword matches on added lines", () => {
+  const diff = [
+    "diff --git a/src/test2.ts b/src/test2.ts",
+    "--- a/src/test2.ts",
+    "+++ b/src/test2.ts",
+    "@@ -0,0 +4 @@",
+    '+const payload = { "PASSWORD": "password", "API_KEY": "api-key" };'
+  ].join("\n");
+
+  const findings = scanDiffForSecrets(diff, []);
+  assert.ok(findings.length >= 1);
+  assert.equal(findings[0].file, "src/test2.ts");
+  assert.equal(findings[0].line, 4);
+  assert.match(findings[0].kind, /^keyword:/);
 });
