@@ -228,6 +228,14 @@ Config:
 - `allow_files`: file glob allowlist to skip secret scanning for known-safe files (example: `["src/test-fixtures/**"]`)
 - `ignore_files`: ignore files Semlint reads for path-level filtering (default: `.gitignore`, `.cursorignore`, `.semlintignore`, `.cursoringore`)
 
+## Security responsibility model
+
+Security in Semlint is shared, and the repository owner remains responsible for secure setup:
+
+- **Diff-level (your responsibility):** carefully configure ignore files and Semlint security settings so sensitive files/content never enter the analyzed diff.
+- **Semlint guard (best-effort control):** Semlint filters diff paths and scans added lines, but this is not a complete prevention system.
+- **Agent/runtime level (handled by your backend tool):** after Semlint sends a prompt to your configured CLI, what the agent can do is controlled by the native agent/backend configuration.
+
 ## Prompt files
 
 Core system prompts are externalized under `prompts/` so prompt behavior is easy to inspect and iterate:

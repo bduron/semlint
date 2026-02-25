@@ -127,6 +127,16 @@ export function scaffoldConfig(force = false): number {
   fs.writeFileSync(targetPath, `${JSON.stringify(scaffold, null, 2)}\n`, "utf8");
   process.stdout.write(pc.green(`Created ${targetPath}\n`));
   process.stdout.write(pc.cyan(`Backend setup: ${detected.backend} (${detected.reason})\n`));
+  process.stderr.write(
+    `${pc.bgRed(pc.white(pc.bold(" SECURITY WARNING ")))}
+${pc.red(
+  "Semlint can only filter and scan diff content before invoking your backend. You must configure ignore files and security settings for your repository."
+)}
+${pc.red(
+  "During backend execution, security is handled by your agent/backend native configuration."
+)}
+${pc.yellow("Review semlint.json security.*, ignore files, and backend/org security settings before use.\n")}`
+  );
 
   const rulesDir = path.join(process.cwd(), ".semlint", "rules");
   if (!fs.existsSync(rulesDir)) {
