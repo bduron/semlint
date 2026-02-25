@@ -66,6 +66,19 @@ function readIgnorePatterns(cwd: string, ignoreFiles: string[]): string[] {
   });
 }
 
+function expandBasenameIgnorePatterns(patterns: string[]): string[] {
+  return patterns.flatMap((pattern) => {
+    const normalized = pattern.trim();
+    if (normalized === "") {
+      return [];
+    }
+    if (normalized.includes("/") || normalized.startsWith("**/")) {
+      return [normalized];
+    }
+    return [normalized, `**/${normalized}`];
+  });
+}
+
 function redactSample(sample: string): string {
   const compact = sample.trim();
   if (compact.length <= 6) {
@@ -89,7 +102,10 @@ export function filterDiffByIgnoreRules(
   cwd: string,
   ignoreFiles: string[]
 ): { filteredDiff: string; excludedFiles: string[] } {
-  const ignorePatterns = [...readIgnorePatterns(cwd, ignoreFiles), ...BUILTIN_SENSITIVE_GLOBS];
+  const ignorePatterns = expandBasenameIgnorePatterns([
+    ...readIgnorePatterns(cwd, ignoreFiles),
+    ...BUILTIN_SENSITIVE_GLOBS
+  ]);
   const ignoreMatcher = picomatch(ignorePatterns, { dot: true });
   const chunks = splitDiffIntoFileChunks(diff);
 
