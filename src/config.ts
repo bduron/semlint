@@ -19,7 +19,8 @@ const DEFAULTS: EffectiveConfig = {
   security: {
     secretGuard: true,
     allowPatterns: [],
-    ignoreFiles: [".gitignore", ".cursorignore", ".semlintignore"]
+    ignoreFiles: [".gitignore", ".cursorignore", ".semlintignore"],
+    allowFiles: []
   }
 };
 
@@ -140,6 +141,19 @@ function sanitizeIgnoreFiles(value: unknown): string[] {
   return normalized.length > 0 ? normalized : [...DEFAULTS.security.ignoreFiles];
 }
 
+function sanitizeAllowFiles(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((candidate) => {
+    if (typeof candidate !== "string") {
+      return [];
+    }
+    const trimmed = candidate.trim();
+    return trimmed === "" ? [] : [trimmed];
+  });
+}
+
 function ensureSelectedBackendIsConfigured(
   backend: string,
   backendConfigs: Record<string, { executable: string; args: string[]; model?: string }>
@@ -193,7 +207,8 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
           ? fileConfig.security.secret_guard
           : DEFAULTS.security.secretGuard,
       allowPatterns: sanitizeAllowPatterns(fileConfig.security?.allow_patterns),
-      ignoreFiles: sanitizeIgnoreFiles(fileConfig.security?.ignore_files)
+      ignoreFiles: sanitizeIgnoreFiles(fileConfig.security?.ignore_files),
+      allowFiles: sanitizeAllowFiles(fileConfig.security?.allow_files)
     }
   };
 }

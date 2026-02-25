@@ -48,6 +48,7 @@ export interface ConfigFile {
     secret_guard?: boolean;
     allow_patterns?: string[];
     ignore_files?: string[];
+    allow_files?: string[];
   };
 }
 
@@ -75,6 +76,7 @@ export interface EffectiveConfig {
     secretGuard: boolean;
     allowPatterns: string[];
     ignoreFiles: string[];
+    allowFiles: string[];
   };
 }
 

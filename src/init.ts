@@ -108,7 +108,8 @@ export function scaffoldConfig(force = false): number {
     security: {
       secret_guard: true,
       allow_patterns: [] as string[],
-      ignore_files: [".gitignore", ".cursorignore", ".semlintignore"]
+      ignore_files: [".gitignore", ".cursorignore", ".semlintignore"],
+      allow_files: [] as string[]
     },
     rules: {
       disable: [] as string[],

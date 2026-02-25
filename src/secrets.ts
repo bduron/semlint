@@ -23,13 +23,32 @@ const SECRET_KEYWORDS = [
   "token",
   "api_key",
   "apikey",
+  "x-api-key",
+  "access_token",
+  "refresh_token",
+  "id_token",
+  "client_secret",
+  "auth_token",
+  "authorization",
+  "bearer ",
+  "private_key",
   "private key",
   "certificate",
   "cert",
+  "connectionstring",
+  "database_url",
+  "postgres://",
+  "mongodb+srv://",
+  "mysql://",
+  "redis://",
   "sk-",
   "sk_",
   "ghp_",
+  "github_pat_",
+  "xoxb-",
+  "xoxp-",
   "akia",
+  "-----begin",
   "key"
 ];
 
@@ -89,9 +108,14 @@ export function filterDiffByIgnoreRules(
   };
 }
 
-export function scanDiffForSecrets(diff: string, allowPatterns: string[]): SecretFinding[] {
+export function scanDiffForSecrets(
+  diff: string,
+  allowPatterns: string[],
+  allowFiles: string[]
+): SecretFinding[] {
   const findings: SecretFinding[] = [];
   const allowMatchers = parseAllowMatchers(allowPatterns);
+  const allowFileMatcher = allowFiles.length > 0 ? picomatch(allowFiles, { dot: true }) : undefined;
   const lines = diff.split("\n");
 
   let currentFile = "(unknown)";
@@ -113,6 +137,11 @@ export function scanDiffForSecrets(diff: string, allowPatterns: string[]): Secre
     }
 
     if (line.startsWith("+") && !line.startsWith("+++")) {
+      const fileAllowed = allowFileMatcher?.(currentFile) ?? false;
+      if (fileAllowed) {
+        newLine += 1;
+        continue;
+      }
       const added = line.slice(1);
       const allowed = allowMatchers.some((matcher) => matcher.test(added));
       if (!allowed) {

@@ -64,9 +64,22 @@ test("scanDiffForSecrets flags keyword matches on added lines", () => {
     '+const payload = { "PASSWORD": "password", "API_KEY": "api-key" };'
   ].join("\n");
 
-  const findings = scanDiffForSecrets(diff, []);
+  const findings = scanDiffForSecrets(diff, [], []);
   assert.ok(findings.length >= 1);
   assert.equal(findings[0].file, "src/test2.ts");
   assert.equal(findings[0].line, 4);
   assert.match(findings[0].kind, /^keyword:/);
+});
+
+test("scanDiffForSecrets skips files listed in allow_files", () => {
+  const diff = [
+    "diff --git a/src/test2.ts b/src/test2.ts",
+    "--- a/src/test2.ts",
+    "+++ b/src/test2.ts",
+    "@@ -0,0 +1 @@",
+    '+const password = "should-not-block-when-allowed";'
+  ].join("\n");
+
+  const findings = scanDiffForSecrets(diff, [], ["src/test2.ts"]);
+  assert.equal(findings.length, 0);
 });

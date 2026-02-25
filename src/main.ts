@@ -59,13 +59,16 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     }
     if (config.security.secretGuard) {
       const findings = timed(config.debug, "Scanned diff for secrets", () =>
-        scanDiffForSecrets(diff, config.security.allowPatterns)
+        scanDiffForSecrets(diff, config.security.allowPatterns, config.security.allowFiles)
       );
       if (findings.length > 0) {
         process.stderr.write(
           pc.red(
             "Secret guard blocked analysis: potential secrets were detected in the diff. Nothing was sent to the backend.\n"
           )
+        );
+        process.stderr.write(
+          "Allow a known-safe file by adding a glob to security.allow_files in semlint.json (example: \"allow_files\": [\"src/test2.ts\"]).\n"
         );
         findings.slice(0, 20).forEach((finding) => {
           process.stderr.write(

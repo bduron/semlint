@@ -95,6 +95,7 @@ Unknown fields are ignored.
   "security": {
     "secret_guard": true,
     "allow_patterns": [],
+    "allow_files": [],
     "ignore_files": [".gitignore", ".cursorignore", ".semlintignore", ".cursoringore"]
   },
   "rules": {
@@ -206,7 +207,7 @@ Semlint uses a fail-closed secret guard before any backend call:
 
 - Filters diff chunks using path ignore rules from `.gitignore`, `.cursorignore`, `.semlintignore`
 - Applies additional built-in sensitive path deny patterns (`.env*`, key files, secrets/credentials folders)
-- Scans added diff lines for likely secrets (keys/tokens/password assignments/private key blocks/high-entropy tokens)
+- Scans added diff lines for high-signal secret keywords and token prefixes (password/token/api key/private key/JWT/provider key prefixes)
 - If any potential secrets are found, Semlint exits with code `2` and sends nothing to the backend
 
 Config:
@@ -216,6 +217,7 @@ Config:
   "security": {
     "secret_guard": true,
     "allow_patterns": [],
+    "allow_files": [],
     "ignore_files": [".gitignore", ".cursorignore", ".semlintignore", ".cursoringore"]
   }
 }
@@ -223,6 +225,7 @@ Config:
 
 - `secret_guard`: enable/disable secret blocking (default `true`)
 - `allow_patterns`: regex list to suppress known-safe fixtures from triggering the guard
+- `allow_files`: file glob allowlist to skip secret scanning for known-safe files (example: `["src/test-fixtures/**"]`)
 - `ignore_files`: ignore files Semlint reads for path-level filtering (default: `.gitignore`, `.cursorignore`, `.semlintignore`, `.cursoringore`)
 
 ## Prompt files
