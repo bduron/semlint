@@ -10,6 +10,7 @@ import { shouldRunRule, extractChangedFilesFromDiff } from "./filter";
 import { getGitDiff, getLocalBranchDiff, getRepoRoot } from "./git";
 import { formatJsonOutput, formatTextOutput } from "./reporter";
 import { loadRules } from "./rules";
+import { filterDiffByIgnoreRules, scanDiffForSecrets } from "./secrets";
 import { BackendDiagnostic, CliOptions } from "./types";
 import { debugLog } from "./utils";
 
@@ -41,9 +42,42 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     debugLog(config.debug, `Rule IDs: ${rules.map((rule) => rule.id).join(", ")}`);
 
     const useLocalBranchDiff = !options.base && !options.head;
-    const diff = await timedAsync(config.debug, "Computed git diff", () =>
+    const repoRoot = await timedAsync(config.debug, "Resolved git repo root", () => getRepoRoot());
+    const scanRoot = repoRoot ?? process.cwd();
+    debugLog(config.debug, `Using diff/ignore scan root: ${scanRoot}`);
+    const rawDiff = await timedAsync(config.debug, "Computed git diff", () =>
       useLocalBranchDiff ? getLocalBranchDiff() : getGitDiff(config.base, config.head)
     );
+    const { filteredDiff: diff, excludedFiles } = timed(config.debug, "Filtered diff by ignore rules", () =>
+      filterDiffByIgnoreRules(rawDiff, scanRoot, config.security.ignoreFiles)
+    );
+    if (excludedFiles.length > 0) {
+      debugLog(
+        config.debug,
+        `Excluded ${excludedFiles.length} file(s) by ignore/security rules: ${excludedFiles.join(", ")}`
+      );
+    }
+    if (config.security.secretGuard) {
+      const findings = timed(config.debug, "Scanned diff for secrets", () =>
+        scanDiffForSecrets(diff, config.security.allowPatterns)
+      );
+      if (findings.length > 0) {
+        process.stderr.write(
+          pc.red(
+            "Secret guard blocked analysis: potential secrets were detected in the diff. Nothing was sent to the backend.\n"
+          )
+        );
+        findings.slice(0, 20).forEach((finding) => {
+          process.stderr.write(
+            `  ${finding.file}:${finding.line}  ${finding.kind}  sample=${finding.redactedSample}\n`
+          );
+        });
+        if (findings.length > 20) {
+          process.stderr.write(`  ...and ${findings.length - 20} more finding(s)\n`);
+        }
+        return 2;
+      }
+    }
     const changedFiles = timed(config.debug, "Parsed changed files from diff", () =>
       extractChangedFilesFromDiff(diff)
     );
@@ -54,8 +88,6 @@ export async function runSemlint(options: CliOptions): Promise<number> {
         : `Using explicit ref diff (${config.base}..${config.head})`
     );
     debugLog(config.debug, `Detected ${changedFiles.length} changed file(s)`);
-
-    const repoRoot = await timedAsync(config.debug, "Resolved git repo root", () => getRepoRoot());
 
     const backend = timed(config.debug, "Initialized backend runner", () => createBackendRunner(config));
     const runnableRules = rules.filter((rule) => {

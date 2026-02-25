@@ -105,6 +105,11 @@ export function scaffoldConfig(force = false): number {
     execution: {
       batch: false
     },
+    security: {
+      secret_guard: true,
+      allow_patterns: [] as string[],
+      ignore_files: [".gitignore", ".cursorignore", ".semlintignore"]
+    },
     rules: {
       disable: [] as string[],
       severity_overrides: {} as Record<string, string>
@@ -128,16 +133,29 @@ export function scaffoldConfig(force = false): number {
     process.stdout.write(pc.green(`Created ${path.join(".semlint", "rules")}/\n`));
   }
 
-  const exampleRulePath = path.join(rulesDir, "SEMLINT_EXAMPLE_001.json");
-  if (!fs.existsSync(exampleRulePath)) {
-    const exampleRule = {
-      id: "SEMLINT_EXAMPLE_001",
-      title: "My first rule",
-      severity_default: "warn",
-      prompt: "Describe what the agent should check in the changed code. Example: flag when new functions lack JSDoc, or when error handling is missing."
-    };
-    fs.writeFileSync(exampleRulePath, `${JSON.stringify(exampleRule, null, 2)}\n`, "utf8");
-    process.stdout.write(pc.green(`Created ${path.join(".semlint", "rules", "SEMLINT_EXAMPLE_001.json")} `) + pc.dim(`(edit the title and prompt to define your rule)\n`));
+  const bundledRulesDir = path.resolve(__dirname, "..", ".semlint", "rules");
+  if (!fs.existsSync(bundledRulesDir) || !fs.statSync(bundledRulesDir).isDirectory()) {
+    process.stderr.write(
+      pc.yellow(
+        `No bundled rules found at ${bundledRulesDir}. Add rule files manually under ${path.join(".semlint", "rules")}.\n`
+      )
+    );
+    return 0;
+  }
+
+  const bundledRules = fs
+    .readdirSync(bundledRulesDir)
+    .filter((name) => name.endsWith(".json"))
+    .sort((a, b) => a.localeCompare(b));
+
+  for (const fileName of bundledRules) {
+    const source = path.join(bundledRulesDir, fileName);
+    const target = path.join(rulesDir, fileName);
+    if (!force && fs.existsSync(target)) {
+      continue;
+    }
+    fs.copyFileSync(source, target);
+    process.stdout.write(pc.green(`Copied ${path.join(".semlint", "rules", fileName)}\n`));
   }
 
   return 0;

@@ -92,8 +92,13 @@ Unknown fields are ignored.
   "execution": {
     "batch": false
   },
+  "security": {
+    "secret_guard": true,
+    "allow_patterns": [],
+    "ignore_files": [".gitignore", ".cursorignore", ".semlintignore", ".cursoringore"]
+  },
   "rules": {
-    "disable": ["SEMLINT_EXAMPLE_001"],
+    "disable": [],
     "severity_overrides": {
       "SEMLINT_API_001": "error"
     }
@@ -124,11 +129,11 @@ This creates `./semlint.json` and auto-detects installed coding agent CLIs in th
 
 If no known CLI is detected, Semlint falls back to `cursor-cli` + executable `cursor`.
 
-Use `semlint init --force` to overwrite an existing config file. Init also creates `.semlint/rules/` and a starter rule `SEMLINT_EXAMPLE_001.json` (with a placeholder title and prompt) if they do not exist.
+Use `semlint init --force` to overwrite an existing config file. Init also creates `.semlint/rules/` and copies the bundled Semlint rule files into it.
 
 ## Rule files
 
-Rule JSON files are loaded from `.semlint/rules/`. Run `semlint init` to create this folder and an example rule you can edit.
+Rule JSON files are loaded from `.semlint/rules/`. Run `semlint init` to create this folder and copy bundled rules into it.
 
 Required fields:
 
@@ -194,6 +199,31 @@ If parsing fails, Semlint retries once with appended instruction:
 `Return valid JSON only.`
 
 If backend execution still fails and Semlint is running in an interactive terminal (TTY), it automatically performs one interactive passthrough run so you can satisfy backend setup prompts (for example auth/workspace trust), then retries machine parsing once.
+
+## Secret guard
+
+Semlint uses a fail-closed secret guard before any backend call:
+
+- Filters diff chunks using path ignore rules from `.gitignore`, `.cursorignore`, `.semlintignore`
+- Applies additional built-in sensitive path deny patterns (`.env*`, key files, secrets/credentials folders)
+- Scans added diff lines for likely secrets (keys/tokens/password assignments/private key blocks/high-entropy tokens)
+- If any potential secrets are found, Semlint exits with code `2` and sends nothing to the backend
+
+Config:
+
+```json
+{
+  "security": {
+    "secret_guard": true,
+    "allow_patterns": [],
+    "ignore_files": [".gitignore", ".cursorignore", ".semlintignore", ".cursoringore"]
+  }
+}
+```
+
+- `secret_guard`: enable/disable secret blocking (default `true`)
+- `allow_patterns`: regex list to suppress known-safe fixtures from triggering the guard
+- `ignore_files`: ignore files Semlint reads for path-level filtering (default: `.gitignore`, `.cursorignore`, `.semlintignore`, `.cursoringore`)
 
 ## Prompt files
 

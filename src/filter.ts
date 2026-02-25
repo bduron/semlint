@@ -1,31 +1,7 @@
+import { parseDiffGitHeader, splitDiffIntoFileChunks } from "./diff";
 import picomatch from "picomatch";
 import { renderRulePrompt } from "./prompts";
 import { LoadedRule } from "./types";
-
-function unquoteDiffPath(raw: string): string {
-  if (raw.startsWith("\"") && raw.endsWith("\"") && raw.length >= 2) {
-    return raw.slice(1, -1).replace(/\\"/g, "\"").replace(/\\\\/g, "\\");
-  }
-  return raw;
-}
-
-function parseDiffGitHeader(line: string): { aPath: string; bPath: string } | undefined {
-  const match = line.match(
-    /^diff --git (?:"a\/((?:[^"\\]|\\.)+)"|a\/(\S+)) (?:"b\/((?:[^"\\]|\\.)+)"|b\/(\S+))$/
-  );
-  if (!match) {
-    return undefined;
-  }
-  const aRaw = match[1] ?? match[2];
-  const bRaw = match[3] ?? match[4];
-  if (!aRaw || !bRaw) {
-    return undefined;
-  }
-  return {
-    aPath: unquoteDiffPath(aRaw),
-    bPath: unquoteDiffPath(bRaw)
-  };
-}
 
 export function extractChangedFilesFromDiff(diff: string): string[] {
   const files = new Set<string>();
@@ -94,40 +70,6 @@ export function shouldRunRule(rule: LoadedRule, changedFiles: string[], diff: st
   }
 
   return true;
-}
-
-function splitDiffIntoFileChunks(diff: string): Array<{ file: string; chunk: string }> {
-  const lines = diff.split("\n");
-  const chunks: Array<{ file: string; chunk: string }> = [];
-
-  let currentLines: string[] = [];
-  let currentFile = "";
-
-  const flush = (): void => {
-    if (currentLines.length === 0) {
-      return;
-    }
-    chunks.push({
-      file: currentFile,
-      chunk: currentLines.join("\n")
-    });
-    currentLines = [];
-    currentFile = "";
-  };
-
-  for (const line of lines) {
-    if (line.startsWith("diff --git ")) {
-      flush();
-      const parsed = parseDiffGitHeader(line);
-      if (parsed) {
-        currentFile = parsed.bPath;
-      }
-    }
-    currentLines.push(line);
-  }
-
-  flush();
-  return chunks;
 }
 
 export function buildScopedDiff(rule: LoadedRule, fullDiff: string, changedFiles: string[]): string {

@@ -9,6 +9,11 @@
   "execution": {
     "batch": false
   },
+  "security": {
+    "secret_guard": true,
+    "allow_patterns": [],
+    "ignore_files": [".gitignore", ".cursorignore", ".semlintignore"]
+  },
   "rules": {
     "disable": [],
     "severity_overrides": {

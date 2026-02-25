@@ -15,7 +15,12 @@ const DEFAULTS: EffectiveConfig = {
   batchMode: false,
   rulesDisable: [],
   severityOverrides: {},
-  backendConfigs: {}
+  backendConfigs: {},
+  security: {
+    secretGuard: true,
+    allowPatterns: [],
+    ignoreFiles: [".gitignore", ".cursorignore", ".semlintignore"]
+  }
 };
 
 function readJsonIfExists(filePath: string): Record<string, unknown> | undefined {
@@ -100,6 +105,41 @@ function sanitizeBackendConfigs(
   );
 }
 
+function sanitizeAllowPatterns(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((candidate) => {
+    if (typeof candidate !== "string" || candidate.trim() === "") {
+      return [];
+    }
+    try {
+      new RegExp(candidate);
+      return [candidate];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function sanitizeIgnoreFiles(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [...DEFAULTS.security.ignoreFiles];
+  }
+  const normalized = value.flatMap((candidate) => {
+    if (typeof candidate !== "string") {
+      return [];
+    }
+    const trimmed = candidate.trim();
+    if (trimmed === "") {
+      return [];
+    }
+    return [trimmed];
+  });
+  return normalized.length > 0 ? normalized : [...DEFAULTS.security.ignoreFiles];
+}
+
 function ensureSelectedBackendIsConfigured(
   backend: string,
   backendConfigs: Record<string, { executable: string; args: string[]; model?: string }>
@@ -146,6 +186,14 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
     severityOverrides: sanitizeSeverityOverrides(
       (fileConfig.rules?.severity_overrides ?? undefined) as Record<string, unknown> | undefined
     ),
-    backendConfigs
+    backendConfigs,
+    security: {
+      secretGuard:
+        typeof fileConfig.security?.secret_guard === "boolean"
+          ? fileConfig.security.secret_guard
+          : DEFAULTS.security.secretGuard,
+      allowPatterns: sanitizeAllowPatterns(fileConfig.security?.allow_patterns),
+      ignoreFiles: sanitizeIgnoreFiles(fileConfig.security?.ignore_files)
+    }
   };
 }

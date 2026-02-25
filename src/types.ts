@@ -44,6 +44,11 @@ export interface ConfigFile {
       model?: string;
     }
   >;
+  security?: {
+    secret_guard?: boolean;
+    allow_patterns?: string[];
+    ignore_files?: string[];
+  };
 }
 
 export interface EffectiveConfig {
@@ -66,6 +71,18 @@ export interface EffectiveConfig {
       model?: string;
     }
   >;
+  security: {
+    secretGuard: boolean;
+    allowPatterns: string[];
+    ignoreFiles: string[];
+  };
+}
+
+export interface SecretFinding {
+  file: string;
+  line: number;
+  kind: string;
+  redactedSample: string;
 }
 
 export interface RuleFile {
