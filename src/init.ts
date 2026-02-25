@@ -113,6 +113,8 @@ export function scaffoldConfig(force = false): number {
     },
     rules: {
       disable: [] as string[],
+      include_globs: ["src/**/*.ts"],
+      exclude_globs: [] as string[],
       severity_overrides: {} as Record<string, string>
     },
     backends: {

@@ -15,6 +15,8 @@ const DEFAULTS: EffectiveConfig = {
   batchMode: false,
   rulesDisable: [],
   severityOverrides: {},
+  rulesIncludeGlobs: [],
+  rulesExcludeGlobs: [],
   backendConfigs: {},
   security: {
     secretGuard: true,
@@ -154,6 +156,19 @@ function sanitizeAllowFiles(value: unknown): string[] {
   });
 }
 
+function sanitizeGlobList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((candidate) => {
+    if (typeof candidate !== "string") {
+      return [];
+    }
+    const trimmed = candidate.trim();
+    return trimmed === "" ? [] : [trimmed];
+  });
+}
+
 function ensureSelectedBackendIsConfigured(
   backend: string,
   backendConfigs: Record<string, { executable: string; args: string[]; model?: string }>
@@ -200,6 +215,8 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
     severityOverrides: sanitizeSeverityOverrides(
       (fileConfig.rules?.severity_overrides ?? undefined) as Record<string, unknown> | undefined
     ),
+    rulesIncludeGlobs: sanitizeGlobList(fileConfig.rules?.include_globs),
+    rulesExcludeGlobs: sanitizeGlobList(fileConfig.rules?.exclude_globs),
     backendConfigs,
     security: {
       secretGuard:

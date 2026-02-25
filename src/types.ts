@@ -33,6 +33,8 @@ export interface ConfigFile {
   rules?: {
     disable?: string[];
     severity_overrides?: Record<string, Severity>;
+    include_globs?: string[];
+    exclude_globs?: string[];
   };
   execution?: {
     batch?: boolean;
@@ -65,6 +67,8 @@ export interface EffectiveConfig {
   batchMode: boolean;
   rulesDisable: string[];
   severityOverrides: Record<string, Severity>;
+  rulesIncludeGlobs: string[];
+  rulesExcludeGlobs: string[];
   backendConfigs: Record<
     string,
     {

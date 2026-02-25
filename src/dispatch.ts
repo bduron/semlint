@@ -46,7 +46,9 @@ export async function runBatchDispatch(input: DispatchInput): Promise<DispatchRe
 
   debugLog(config.debug, `Running ${rules.length} rule(s) in batch mode`);
   const combinedDiff = rules
-    .map((rule) => buildScopedDiff(rule, diff, changedFiles))
+    .map((rule) =>
+      buildScopedDiff(rule, diff, changedFiles, config.rulesIncludeGlobs, config.rulesExcludeGlobs)
+    )
     .filter((chunk) => chunk.trim() !== "")
     .join("\n");
   const batchPrompt = buildBatchPrompt(rules, combinedDiff || diff);
@@ -105,7 +107,13 @@ export async function runParallelDispatch(input: DispatchInput): Promise<Dispatc
       const ruleStartedAt = Date.now();
       debugLog(config.debug, `Rule ${rule.id}: started`);
 
-      const scopedDiff = buildScopedDiff(rule, diff, changedFiles);
+      const scopedDiff = buildScopedDiff(
+        rule,
+        diff,
+        changedFiles,
+        config.rulesIncludeGlobs,
+        config.rulesExcludeGlobs
+      );
       const prompt = buildRulePrompt(rule, scopedDiff);
 
       try {

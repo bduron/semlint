@@ -176,7 +176,13 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     const backend = timed(config.debug, "Initialized backend runner", () => createBackendRunner(config));
     const runnableRules = rules.filter((rule) => {
       const filterStartedAt = Date.now();
-      const shouldRun = shouldRunRule(rule, changedFiles, diff);
+      const shouldRun = shouldRunRule(
+        rule,
+        changedFiles,
+        diff,
+        config.rulesIncludeGlobs,
+        config.rulesExcludeGlobs
+      );
       debugLog(config.debug, `Rule ${rule.id}: filter check in ${Date.now() - filterStartedAt}ms`);
       if (!shouldRun) {
         debugLog(config.debug, `Skipping rule ${rule.id}: filters did not match`);

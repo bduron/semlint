@@ -22,6 +22,8 @@
   },
   "rules": {
     "disable": [],
+    "include_globs": ["src/**/*.ts"],
+    "exclude_globs": [],
     "severity_overrides": {
       "SEMLINT_NAMING_001": "warn",
       "SEMLINT_PATTERN_002": "warn",

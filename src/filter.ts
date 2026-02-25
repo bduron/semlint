@@ -38,12 +38,26 @@ function matchesAnyRegex(diff: string, regexes: string[]): boolean {
   return false;
 }
 
-export function getRuleCandidateFiles(rule: LoadedRule, changedFiles: string[]): string[] {
+function resolveRuleGlobs(ruleGlobs: string[] | undefined, globalGlobs: string[]): string[] {
+  if (ruleGlobs === undefined) {
+    return globalGlobs;
+  }
+  return ruleGlobs;
+}
+
+export function getRuleCandidateFiles(
+  rule: LoadedRule,
+  changedFiles: string[],
+  globalIncludeGlobs: string[] = [],
+  globalExcludeGlobs: string[] = []
+): string[] {
   let fileCandidates = changedFiles;
+  const effectiveIncludeGlobs = resolveRuleGlobs(rule.include_globs, globalIncludeGlobs);
+  const effectiveExcludeGlobs = resolveRuleGlobs(rule.exclude_globs, globalExcludeGlobs);
   const includeMatcher =
-    rule.include_globs && rule.include_globs.length > 0 ? picomatch(rule.include_globs) : null;
+    effectiveIncludeGlobs.length > 0 ? picomatch(effectiveIncludeGlobs) : null;
   const excludeMatcher =
-    rule.exclude_globs && rule.exclude_globs.length > 0 ? picomatch(rule.exclude_globs) : null;
+    effectiveExcludeGlobs.length > 0 ? picomatch(effectiveExcludeGlobs) : null;
 
   if (includeMatcher) {
     fileCandidates = changedFiles.filter((filePath) => includeMatcher(filePath));
@@ -59,8 +73,19 @@ export function getRuleCandidateFiles(rule: LoadedRule, changedFiles: string[]):
   return fileCandidates;
 }
 
-export function shouldRunRule(rule: LoadedRule, changedFiles: string[], diff: string): boolean {
-  const fileCandidates = getRuleCandidateFiles(rule, changedFiles);
+export function shouldRunRule(
+  rule: LoadedRule,
+  changedFiles: string[],
+  diff: string,
+  globalIncludeGlobs: string[] = [],
+  globalExcludeGlobs: string[] = []
+): boolean {
+  const fileCandidates = getRuleCandidateFiles(
+    rule,
+    changedFiles,
+    globalIncludeGlobs,
+    globalExcludeGlobs
+  );
   if (fileCandidates.length === 0) {
     return false;
   }
@@ -72,8 +97,16 @@ export function shouldRunRule(rule: LoadedRule, changedFiles: string[], diff: st
   return true;
 }
 
-export function buildScopedDiff(rule: LoadedRule, fullDiff: string, changedFiles: string[]): string {
-  const candidateFiles = new Set(getRuleCandidateFiles(rule, changedFiles));
+export function buildScopedDiff(
+  rule: LoadedRule,
+  fullDiff: string,
+  changedFiles: string[],
+  globalIncludeGlobs: string[] = [],
+  globalExcludeGlobs: string[] = []
+): string {
+  const candidateFiles = new Set(
+    getRuleCandidateFiles(rule, changedFiles, globalIncludeGlobs, globalExcludeGlobs)
+  );
   if (candidateFiles.size === 0) {
     return fullDiff;
   }

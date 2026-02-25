@@ -2,8 +2,6 @@
   "id": "SEMLINT_NAMING_001",
   "title": "Ambient naming convention consistency",
   "severity_default": "warn",
-  "include_globs": ["src/**/*.ts"],
-  "exclude_globs": ["**/*.test.ts", "**/*.spec.ts"],
   "diff_regex": [
     "^[+-].*\\b(const|let|var|function|class|interface|type|enum)\\b",
     "^[+-].*\\b[A-Za-z_][A-Za-z0-9_]*\\b"
