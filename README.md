@@ -1,5 +1,13 @@
 # Semlint CLI MVP
 
+## Motivation
+
+Upstream instruction files (`AGENTS.md`, `CURSOR.md`, etc.) are the standard way to guide coding agents — but a [recent study (Gloaguen et al., 2026)](https://arxiv.org/abs/2602.11988) found that such context files tend to *reduce* task success rates compared to providing no context at all, while increasing inference cost by over 20%. The root cause: agents respect the instructions, but unnecessary or over-specified requirements make tasks harder, with no feedback mechanism to catch when rules are ignored or misapplied.
+
+Semlint takes a different approach. Instead of providing guidance upfront and hoping for the best, rules are enforced *after the fact* as a lint pass on the diff — giving agents a deterministic red/green signal and closing the feedback loop.
+
+---
+
 Semlint is a deterministic semantic lint CLI that:
 
 - reads a git diff,

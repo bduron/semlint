@@ -68,6 +68,9 @@
         <section id="features" class="features-section section-bg">
             <div class="container">
                 <h2 class="section-title">Why Semlint?</h2>
+                <p class="section-subtitle">Upstream <code>.md</code> instructions are best-effort. Agents read them,
+                    but nothing enforces them. Semlint shifts the contract downstream: rules are checked after the fact,
+                    giving agents a clear red/green feedback loop with real guarantees.</p>
                 <div class="features-grid">
                     <div class="feature-card">
                         <div class="feature-icon">🤖</div>
@@ -135,7 +138,8 @@
                         <div class="step-text">
                             <span class="step-number">2</span>
                             <h3>Define semantic rules</h3>
-                            <p>Add JSON rules in your <code>.semlint/rules/</code> directory. Use natural language to describe
+                            <p>Add JSON rules in your <code>.semlint/rules/</code> directory. Use natural language to
+                                describe
                                 what the agent should look for.</p>
                         </div>
                         <div class="code-window">
