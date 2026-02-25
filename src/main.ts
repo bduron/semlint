@@ -1,6 +1,8 @@
 import pc from "picocolors";
 import { createSpinner, Spinner } from "nanospinner";
 import path from "node:path";
+import readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { version as VERSION } from "../package.json";
 import { createBackendRunner } from "./backend";
 import { loadEffectiveConfig } from "./config";
@@ -26,6 +28,54 @@ async function timedAsync<T>(enabled: boolean, label: string, action: () => Prom
   const result = await action();
   debugLog(enabled, `${label} in ${Date.now() - startedAt}ms`);
   return result;
+}
+
+function formatFileList(title: string, files: string[]): string {
+  if (files.length === 0) {
+    return `${title} (0):\n  (none)\n`;
+  }
+  return `${title} (${files.length}):\n${files.map((file) => `  - ${file}`).join("\n")}\n`;
+}
+
+async function confirmDiffPreview(
+  includedFiles: string[],
+  excludedFiles: string[],
+  autoAccept: boolean | undefined
+): Promise<boolean> {
+  process.stdout.write("\n");
+  process.stdout.write(pc.blue(pc.bold("Semlint diff preview\n\n")));
+  process.stdout.write(
+    pc.red(
+      "Warning: any sensitive file included below will be sent to your agent.\nMake sure you understand the security implications (run `semlint-cli security` for more information).\n\n"
+    )
+  );
+  process.stdout.write(formatFileList("Included files", includedFiles));
+  process.stdout.write("\n");
+  process.stdout.write(formatFileList("Excluded files", excludedFiles));
+  process.stdout.write("\n");
+
+  if (autoAccept) {
+    process.stdout.write(pc.dim("Auto-accepted with --yes.\n\n"));
+    return true;
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    process.stderr.write(
+      pc.red(
+        "Diff confirmation is required by default. Re-run with --yes (-y) to auto-accept in non-interactive environments.\n"
+      )
+    );
+    return false;
+  }
+
+  const rl = readline.createInterface({ input, output });
+  try {
+    const answer = await rl.question(pc.yellow("Proceed with Semlint analysis? [y/N] "));
+    const normalized = answer.trim().toLowerCase();
+    return normalized === "y" || normalized === "yes";
+  } finally {
+    rl.close();
+  }
 }
 
 export async function runSemlint(options: CliOptions): Promise<number> {
@@ -68,7 +118,7 @@ export async function runSemlint(options: CliOptions): Promise<number> {
           )
         );
         process.stderr.write(
-          "Allow a known-safe file by adding a glob to security.allow_files in semlint.json (example: \"allow_files\": [\"src/test2.ts\"]).\n"
+          "Allow a known-safe file by adding a glob to security.allow_files in semlint.json (example: \"allow_files\": [\"src/my-sensitive-file.ts\"]).\n"
         );
         findings.slice(0, 20).forEach((finding) => {
           process.stderr.write(
@@ -84,6 +134,13 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     const changedFiles = timed(config.debug, "Parsed changed files from diff", () =>
       extractChangedFilesFromDiff(diff)
     );
+    const confirmed = await timedAsync(config.debug, "User confirmation", () =>
+      confirmDiffPreview(changedFiles, excludedFiles, options.autoAccept)
+    );
+    if (!confirmed) {
+      process.stderr.write("Aborted by user.\n");
+      return 2;
+    }
     debugLog(
       config.debug,
       useLocalBranchDiff

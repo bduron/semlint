@@ -12,7 +12,12 @@
   "security": {
     "secret_guard": true,
     "allow_patterns": [],
-    "allow_files": [],
+    "allow_files": [
+      "src/cli.ts",
+      "src/secrets.test.ts",
+      "src/secrets.ts",
+      "semlint.json"
+    ],
     "ignore_files": [".gitignore", ".cursorignore", ".semlintignore"]
   },
   "rules": {

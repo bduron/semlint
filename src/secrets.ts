@@ -1,19 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import ignore from "ignore";
 import picomatch from "picomatch";
 import { parseDiffGitHeader, splitDiffIntoFileChunks } from "./diff";
 import { SecretFinding } from "./types";
 
 const BUILTIN_SENSITIVE_GLOBS = [
   ".env",
+  "*.env",
   ".env.*",
+  "*.env.*",
   "*.pem",
   "*.key",
   "id_rsa",
   "id_rsa.*",
-  "**/secrets/**",
-  "**/credentials/**",
-  "**/*credentials*.json"
+  "secrets/",
+  "credentials/",
+  "*credentials*.json"
 ];
 
 const SECRET_KEYWORDS = [
@@ -66,17 +69,9 @@ function readIgnorePatterns(cwd: string, ignoreFiles: string[]): string[] {
   });
 }
 
-function expandBasenameIgnorePatterns(patterns: string[]): string[] {
-  return patterns.flatMap((pattern) => {
-    const normalized = pattern.trim();
-    if (normalized === "") {
-      return [];
-    }
-    if (normalized.includes("/") || normalized.startsWith("**/")) {
-      return [normalized];
-    }
-    return [normalized, `**/${normalized}`];
-  });
+function createIgnoreMatcher(patterns: string[]): (filePath: string) => boolean {
+  const matcher = ignore().add(patterns);
+  return (filePath: string) => matcher.ignores(filePath);
 }
 
 function redactSample(sample: string): string {
@@ -102,11 +97,8 @@ export function filterDiffByIgnoreRules(
   cwd: string,
   ignoreFiles: string[]
 ): { filteredDiff: string; excludedFiles: string[] } {
-  const ignorePatterns = expandBasenameIgnorePatterns([
-    ...readIgnorePatterns(cwd, ignoreFiles),
-    ...BUILTIN_SENSITIVE_GLOBS
-  ]);
-  const ignoreMatcher = picomatch(ignorePatterns, { dot: true });
+  const ignorePatterns = [...readIgnorePatterns(cwd, ignoreFiles), ...BUILTIN_SENSITIVE_GLOBS];
+  const ignoreMatcher = createIgnoreMatcher(ignorePatterns);
   const chunks = splitDiffIntoFileChunks(diff);
 
   const excludedFiles = chunks

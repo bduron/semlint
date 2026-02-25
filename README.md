@@ -51,6 +51,7 @@ pnpm check
 - `--head <ref>`: head git ref for explicit ref-to-ref diff
 - `--fail-on <error|warn|never>`: failure threshold (default `error`)
 - `--batch`: run all selected rules in one backend call
+- `--yes` / `-y`: auto-accept diff file confirmation (useful for CI)
 - `--debug`: enable debug logs to stderr
 - `init --force`: overwrite an existing `semlint.json`
 
@@ -62,6 +63,9 @@ Default diff behavior (without `--base`/`--head`) uses your local branch state:
 - untracked files.
 
 If you pass `--base` or `--head`, Semlint uses explicit `git diff <base> <head>` mode.
+
+Before backend execution, Semlint shows the included and excluded diff files and asks for confirmation by default.
+Use `--yes` / `-y` to skip this prompt.
 
 ## Exit codes
 
@@ -227,6 +231,8 @@ Config:
 - `allow_patterns`: regex list to suppress known-safe fixtures from triggering the guard
 - `allow_files`: file glob allowlist to skip secret scanning for known-safe files (example: `["src/test-fixtures/**"]`)
 - `ignore_files`: ignore files Semlint reads for path-level filtering (default: `.gitignore`, `.cursorignore`, `.semlintignore`, `.cursoringore`)
+
+Ignore file patterns are evaluated with standard gitignore semantics (including basename matching and `!` negation).
 
 ## Security responsibility model
 

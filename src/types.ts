@@ -3,7 +3,7 @@ export type OutputFormat = "text" | "json";
 export type FailOn = "error" | "warn" | "never";
 
 export interface CliOptions {
-  command: "check" | "init";
+  command: "check" | "init" | "security";
   backend?: string;
   model?: string;
   configPath?: string;
@@ -12,6 +12,7 @@ export interface CliOptions {
   head?: string;
   failOn?: FailOn;
   batch?: boolean;
+  autoAccept?: boolean;
   force?: boolean;
   debug: boolean;
 }

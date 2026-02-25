@@ -110,3 +110,55 @@ test("filterDiffByIgnoreRules matches basename ignores in nested paths", () => {
     fs.rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+test("filterDiffByIgnoreRules supports gitignore negation patterns", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "semlint-ignore-negation-"));
+  try {
+    fs.writeFileSync(path.join(cwd, ".semlintignore"), "*.env\n!src/public.env\n", "utf8");
+
+    const diff = [
+      "diff --git a/src/secret.env b/src/secret.env",
+      "--- a/src/secret.env",
+      "+++ b/src/secret.env",
+      "@@ -0,0 +1 @@",
+      "+API_KEY=blocked",
+      "diff --git a/src/public.env b/src/public.env",
+      "--- a/src/public.env",
+      "+++ b/src/public.env",
+      "@@ -0,0 +1 @@",
+      "+SAFE=true"
+    ].join("\n");
+
+    const result = filterDiffByIgnoreRules(diff, cwd, [".semlintignore"]);
+    assert.deepEqual(result.excludedFiles, ["src/secret.env"]);
+    assert.match(result.filteredDiff, /src\/public\.env/);
+    assert.doesNotMatch(result.filteredDiff, /src\/secret\.env/);
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("filterDiffByIgnoreRules excludes *.env by builtin sensitive globs", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "semlint-ignore-builtin-env-"));
+  try {
+    const diff = [
+      "diff --git a/src/secret.env b/src/secret.env",
+      "--- a/src/secret.env",
+      "+++ b/src/secret.env",
+      "@@ -0,0 +1 @@",
+      "+API_KEY=blocked",
+      "diff --git a/src/safe.ts b/src/safe.ts",
+      "--- a/src/safe.ts",
+      "+++ b/src/safe.ts",
+      "@@ -0,0 +1 @@",
+      "+const safe = true;"
+    ].join("\n");
+
+    const result = filterDiffByIgnoreRules(diff, cwd, [".semlintignore"]);
+    assert.deepEqual(result.excludedFiles, ["src/secret.env"]);
+    assert.match(result.filteredDiff, /src\/safe\.ts/);
+    assert.doesNotMatch(result.filteredDiff, /src\/secret\.env/);
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});

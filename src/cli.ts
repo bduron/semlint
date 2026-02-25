@@ -2,20 +2,24 @@
 import pc from "picocolors";
 import { scaffoldConfig } from "./init";
 import { runSemlint } from "./main";
+import { printSecurityGuide } from "./security";
 import { CliOptions, FailOn, OutputFormat } from "./types";
 
 const HELP_TEXT = [
   "Usage:",
-  "  semlint check [--backend <name>] [--model <name>] [--config <path>] [--format <text|json>] [--base <ref>] [--head <ref>] [--fail-on <error|warn|never>] [--batch] [--debug]",
-  "  semlint init [--force]",
-  "  semlint --help",
+  " semlint-cli check [--backend <name>] [--model <name>] [--config <path>] [--format <text|json>] [--base <ref>] [--head <ref>] [--fail-on <error|warn|never>] [--batch] [--yes|-y] [--debug]",
+  " semlint-cli init [--force]",
+  " semlint-cli security",
+  " semlint-cli --help",
   "",
   "Commands:",
   "  check   Run semantic lint rules against your git diff",
   "  init    Create semlint.json, .semlint/rules/, and an example rule to edit",
+  "  security  Show security responsibility guidance",
   "",
   "Options:",
-  "  -h, --help   Show this help text"
+  "  -h, --help   Show this help text",
+  "  -y, --yes    Auto-accept diff file confirmation"
 ].join("\n");
 
 class HelpRequestedError extends Error {
@@ -49,7 +53,7 @@ function parseArgs(argv: string[]): CliOptions {
 
   const [command, ...rest] = argv;
 
-  if (!command || (command !== "check" && command !== "init")) {
+  if (!command || (command !== "check" && command !== "init" && command !== "security")) {
     throw new Error(HELP_TEXT);
   }
 
@@ -68,6 +72,16 @@ function parseArgs(argv: string[]): CliOptions {
     return options;
   }
 
+  if (command === "security") {
+    if (rest.length > 0) {
+      throw new Error(`Unknown flag for security: ${rest[0]}`);
+    }
+    return {
+      command: "security",
+      debug: false
+    };
+  }
+
   const options: CliOptions = {
     command: "check",
     debug: false
@@ -75,6 +89,10 @@ function parseArgs(argv: string[]): CliOptions {
 
   for (let i = 0; i < rest.length; i += 1) {
     const token = rest[i];
+    if (token === "--yes" || token === "-y") {
+      options.autoAccept = true;
+      continue;
+    }
     if (token === "--debug") {
       options.debug = true;
       continue;
@@ -134,7 +152,11 @@ async function main(): Promise<void> {
   try {
     const options = parseArgs(process.argv.slice(2));
     const exitCode =
-      options.command === "init" ? scaffoldConfig(options.force) : await runSemlint(options);
+      options.command === "init"
+        ? scaffoldConfig(options.force)
+        : options.command === "security"
+          ? printSecurityGuide()
+          : await runSemlint(options);
     process.exitCode = exitCode;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
