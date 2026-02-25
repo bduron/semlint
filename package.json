@@ -9,6 +9,7 @@
   },
   "files": [
     "dist",
+    "prompts",
     "rules",
     "README.md"
   ],

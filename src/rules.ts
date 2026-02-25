@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { LoadedRule, RuleFile, Severity } from "./types";
-
-const VALID_SEVERITIES = new Set<Severity>(["error", "warn", "info"]);
+import { VALID_SEVERITIES } from "./utils";
 
 function assertNonEmptyString(value: unknown, fieldName: string, filePath: string): string {
   if (typeof value !== "string" || value.trim() === "") {
@@ -60,43 +59,38 @@ export function loadRules(
     .filter((name) => name.endsWith(".json"))
     .sort((a, b) => a.localeCompare(b));
 
-  const seenIds = new Set<string>();
   const disabled = new Set(disabledRuleIds);
-  const loaded: LoadedRule[] = [];
+  const seenIds = new Set<string>();
 
-  for (const fileName of entries) {
-    const filePath = path.join(rulesDir, fileName);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to parse rule JSON in ${filePath}: ${message}`);
-    }
+  return entries
+    .map((fileName) => {
+      const filePath = path.join(rulesDir, fileName);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to parse rule JSON in ${filePath}: ${message}`);
+      }
 
-    const validated = validateRuleObject(parsed, filePath);
+      const validated = validateRuleObject(parsed, filePath);
+      if (seenIds.has(validated.id)) {
+        throw new Error(`Duplicate rule id detected: ${validated.id}`);
+      }
+      seenIds.add(validated.id);
 
-    if (seenIds.has(validated.id)) {
-      throw new Error(`Duplicate rule id detected: ${validated.id}`);
-    }
-    seenIds.add(validated.id);
+      const overrideSeverity = severityOverrides[validated.id];
+      const effectiveSeverity = overrideSeverity ?? validated.severity_default;
+      if (!VALID_SEVERITIES.has(effectiveSeverity)) {
+        throw new Error(`Invalid severity override for rule ${validated.id}`);
+      }
 
-    if (disabled.has(validated.id)) {
-      continue;
-    }
-
-    const overrideSeverity = severityOverrides[validated.id];
-    const effectiveSeverity = overrideSeverity ?? validated.severity_default;
-    if (!VALID_SEVERITIES.has(effectiveSeverity)) {
-      throw new Error(`Invalid severity override for rule ${validated.id}`);
-    }
-
-    loaded.push({
-      ...validated,
-      sourcePath: filePath,
-      effectiveSeverity
-    });
-  }
-
-  return loaded.sort((a, b) => a.id.localeCompare(b.id));
+      return {
+        ...validated,
+        sourcePath: filePath,
+        effectiveSeverity
+      };
+    })
+    .filter((rule) => !disabled.has(rule.id))
+    .sort((a, b) => a.id.localeCompare(b.id));
 }

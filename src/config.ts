@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CliOptions, ConfigFile, EffectiveConfig, Severity } from "./types";
-
-const VALID_SEVERITIES = new Set<Severity>(["error", "warn", "info"]);
+import { VALID_SEVERITIES } from "./utils";
 
 const DEFAULTS: EffectiveConfig = {
   backend: "cursor-cli",
@@ -16,9 +15,7 @@ const DEFAULTS: EffectiveConfig = {
   batchMode: false,
   rulesDisable: [],
   severityOverrides: {},
-  backendExecutables: {
-    "cursor-cli": "cursor"
-  }
+  backendConfigs: {}
 };
 
 function readJsonIfExists(filePath: string): Record<string, unknown> | undefined {
@@ -58,37 +55,60 @@ function sanitizeSeverityOverrides(
   if (!value) {
     return {};
   }
-  const out: Record<string, Severity> = {};
-  for (const [ruleId, severity] of Object.entries(value)) {
-    if (typeof severity === "string" && VALID_SEVERITIES.has(severity as Severity)) {
-      out[ruleId] = severity as Severity;
-    }
-  }
-  return out;
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([ruleId, severity]) =>
+      typeof severity === "string" && VALID_SEVERITIES.has(severity as Severity)
+        ? [[ruleId, severity as Severity]]
+        : []
+    )
+  );
 }
 
-function sanitizeBackendExecutables(
+function sanitizeBackendConfigs(
   value: Record<string, unknown> | undefined
-): Record<string, string> {
-  const out: Record<string, string> = {
-    ...DEFAULTS.backendExecutables
-  };
+): Record<string, { executable: string; args: string[]; model?: string }> {
   if (!value) {
-    return out;
+    return {};
   }
 
-  for (const [name, candidate] of Object.entries(value)) {
-    if (
-      typeof candidate === "object" &&
-      candidate !== null &&
-      "executable" in candidate &&
-      typeof (candidate as { executable?: unknown }).executable === "string" &&
-      (candidate as { executable: string }).executable.trim() !== ""
-    ) {
-      out[name] = (candidate as { executable: string }).executable.trim();
-    }
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([name, candidate]) => {
+      if (typeof candidate !== "object" || candidate === null) {
+        return [];
+      }
+
+      const executable =
+        "executable" in candidate && typeof (candidate as { executable?: unknown }).executable === "string"
+          ? (candidate as { executable: string }).executable.trim()
+          : "";
+      const args = "args" in candidate ? (candidate as { args?: unknown }).args : undefined;
+      const model =
+        "model" in candidate && typeof (candidate as { model?: unknown }).model === "string"
+          ? (candidate as { model: string }).model.trim()
+          : undefined;
+      if (!executable || !Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
+        return [];
+      }
+
+      const normalizedArgs = args as string[];
+      if (!normalizedArgs.includes("{prompt}")) {
+        return [];
+      }
+
+      return [[name, { executable, args: normalizedArgs, model: model && model !== "" ? model : undefined }]];
+    })
+  );
+}
+
+function ensureSelectedBackendIsConfigured(
+  backend: string,
+  backendConfigs: Record<string, { executable: string; args: string[]; model?: string }>
+): void {
+  if (!(backend in backendConfigs)) {
+    throw new Error(
+      `Backend "${backend}" is not configured. Add it under backends.${backend} with executable and args (including "{prompt}") in semlint.json.`
+    )
   }
-  return out;
 }
 
 export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
@@ -96,9 +116,16 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
   const parsed = configPath ? readJsonIfExists(configPath) : undefined;
   const fileConfig = (parsed ?? {}) as ConfigFile;
 
+  const backend = options.backend ?? fileConfig.backend ?? DEFAULTS.backend;
+  const backendConfigs = sanitizeBackendConfigs(
+    (fileConfig.backends ?? undefined) as Record<string, unknown> | undefined
+  );
+  ensureSelectedBackendIsConfigured(backend, backendConfigs);
+  const backendModel = backendConfigs[backend]?.model;
+
   return {
-    backend: options.backend ?? fileConfig.backend ?? DEFAULTS.backend,
-    model: options.model ?? fileConfig.model ?? DEFAULTS.model,
+    backend,
+    model: options.model ?? backendModel ?? DEFAULTS.model,
     timeoutMs:
       typeof fileConfig.budgets?.timeout_ms === "number"
         ? fileConfig.budgets.timeout_ms
@@ -119,8 +146,6 @@ export function loadEffectiveConfig(options: CliOptions): EffectiveConfig {
     severityOverrides: sanitizeSeverityOverrides(
       (fileConfig.rules?.severity_overrides ?? undefined) as Record<string, unknown> | undefined
     ),
-    backendExecutables: sanitizeBackendExecutables(
-      (fileConfig.backends ?? undefined) as Record<string, unknown> | undefined
-    )
+    backendConfigs
   };
 }

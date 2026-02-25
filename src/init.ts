@@ -6,7 +6,34 @@ import { spawnSync } from "node:child_process";
 type DetectedBackend = {
   backend: string;
   executable: string;
+  args: string[];
+  model: string;
   reason: string;
+};
+
+const SCAFFOLD_BACKENDS: Record<
+  string,
+  {
+    executable: string;
+    args: string[];
+    model: string;
+  }
+> = {
+  "cursor-cli": {
+    executable: "cursor",
+    args: ["agent", "{prompt}", "--model", "{model}", "--print", "--mode", "ask", "--output-format", "text"],
+    model: "auto"
+  },
+  "claude-code": {
+    executable: "claude",
+    args: ["{prompt}", "--model", "{model}", "--output-format", "json"],
+    model: "auto"
+  },
+  "codex-cli": {
+    executable: "codex",
+    args: ["{prompt}", "--model", "{model}"],
+    model: "auto"
+  }
 };
 
 function commandExists(command: string): boolean {
@@ -37,13 +64,22 @@ function detectBackend(): DetectedBackend {
 
   for (const candidate of candidates) {
     if (commandExists(candidate.executable)) {
-      return candidate;
+      const scaffold = SCAFFOLD_BACKENDS[candidate.backend];
+      return {
+        backend: candidate.backend,
+        executable: scaffold.executable,
+        args: scaffold.args,
+        model: scaffold.model,
+        reason: candidate.reason
+      };
     }
   }
 
   return {
     backend: "cursor-cli",
-    executable: "cursor",
+    executable: SCAFFOLD_BACKENDS["cursor-cli"].executable,
+    args: SCAFFOLD_BACKENDS["cursor-cli"].args,
+    model: SCAFFOLD_BACKENDS["cursor-cli"].model,
     reason: "no known agent CLI detected, using default Cursor setup"
   };
 }
@@ -60,7 +96,6 @@ export function scaffoldConfig(force = false): number {
   const detected = detectBackend();
   const scaffold = {
     backend: detected.backend,
-    model: "auto",
     budgets: {
       timeout_ms: 120000
     },
@@ -76,7 +111,9 @@ export function scaffoldConfig(force = false): number {
     },
     backends: {
       [detected.backend]: {
-        executable: detected.executable
+        executable: detected.executable,
+        args: detected.args,
+        model: detected.model
       }
     }
   };

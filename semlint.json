@@ -1,6 +1,5 @@
 {
   "backend": "cursor-cli",
-  "model": "composer-1.5",
   "budgets": {
     "timeout_ms": 120000
   },
@@ -20,7 +19,20 @@
   },
   "backends": {
     "cursor-cli": {
-      "executable": "cursor"
+      "executable": "cursor",
+      "model": "composer-1.5",
+      "args": [
+        "agent",
+        "{prompt}",
+        "--model",
+        "{model}",
+        "--print",
+        "--mode",
+        "ask",
+        "--output-format",
+        "text",
+        "--trust"
+      ]
     }
   }
 }

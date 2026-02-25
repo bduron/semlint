@@ -1,4 +1,5 @@
 import picomatch from "picomatch";
+import { renderRulePrompt } from "./prompts";
 import { LoadedRule } from "./types";
 
 function unquoteDiffPath(raw: string): string {
@@ -47,10 +48,6 @@ export function extractChangedFilesFromDiff(diff: string): string[] {
   return Array.from(files);
 }
 
-function matchesAnyGlob(filePath: string, globs: string[]): boolean {
-  return globs.some((glob) => picomatch(glob)(filePath));
-}
-
 function matchesAnyRegex(diff: string, regexes: string[]): boolean {
   for (const candidate of regexes) {
     try {
@@ -67,18 +64,20 @@ function matchesAnyRegex(diff: string, regexes: string[]): boolean {
 
 export function getRuleCandidateFiles(rule: LoadedRule, changedFiles: string[]): string[] {
   let fileCandidates = changedFiles;
+  const includeMatcher =
+    rule.include_globs && rule.include_globs.length > 0 ? picomatch(rule.include_globs) : null;
+  const excludeMatcher =
+    rule.exclude_globs && rule.exclude_globs.length > 0 ? picomatch(rule.exclude_globs) : null;
 
-  if (rule.include_globs && rule.include_globs.length > 0) {
-    fileCandidates = changedFiles.filter((filePath) => matchesAnyGlob(filePath, rule.include_globs!));
+  if (includeMatcher) {
+    fileCandidates = changedFiles.filter((filePath) => includeMatcher(filePath));
     if (fileCandidates.length === 0) {
       return [];
     }
   }
 
-  if (rule.exclude_globs && rule.exclude_globs.length > 0) {
-    fileCandidates = fileCandidates.filter(
-      (filePath) => !matchesAnyGlob(filePath, rule.exclude_globs!)
-    );
+  if (excludeMatcher) {
+    fileCandidates = fileCandidates.filter((filePath) => !excludeMatcher(filePath));
   }
 
   return fileCandidates;
@@ -147,41 +146,11 @@ export function buildScopedDiff(rule: LoadedRule, fullDiff: string, changedFiles
 }
 
 export function buildRulePrompt(rule: LoadedRule, diff: string): string {
-  return [
-    "You are Semlint, an expert semantic code reviewer.",
-    "Analyze ONLY the modified code present in the DIFF below.",
-    "Return JSON only (no markdown, no prose, no code fences).",
-    "Output schema:",
-    "{",
-    "  \"diagnostics\": [",
-    "    {",
-    "      \"rule_id\": string,",
-    "      \"severity\": \"error\" | \"warn\" | \"info\",",
-    "      \"message\": string,",
-    "      \"file\": string,",
-    "      \"line\": number,",
-    "      \"column\"?: number,",
-    "      \"end_line\"?: number,",
-    "      \"end_column\"?: number,",
-    "      \"evidence\"?: string,",
-    "      \"confidence\"?: number",
-    "    }",
-    "  ]",
-    "}",
-    "Rules:",
-    "- If there are no findings, return {\"diagnostics\":[]}.",
-    "- Each diagnostic must reference a changed file from the DIFF.",
-    "- Use the provided RULE_ID exactly in every diagnostic.",
-    "- Keep messages concise and actionable.",
-    "",
-    `RULE_ID: ${rule.id}`,
-    `RULE_TITLE: ${rule.title}`,
-    `SEVERITY_DEFAULT: ${rule.effectiveSeverity}`,
-    "",
-    "INSTRUCTIONS:",
-    rule.prompt,
-    "",
-    "DIFF:",
+  return renderRulePrompt({
+    ruleId: rule.id,
+    ruleTitle: rule.title,
+    severityDefault: rule.effectiveSeverity,
+    instructions: rule.prompt,
     diff
-  ].join("\n");
+  });
 }

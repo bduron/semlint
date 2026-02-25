@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import { getStrictJsonRetryInstruction } from "./prompts";
 import { BackendResult, EffectiveConfig, RunPromptInput, RunRuleInput } from "./types";
+import { debugLog } from "./utils";
 
 interface CommandExecutionResult {
   stdout: string;
@@ -9,16 +11,10 @@ interface CommandExecutionResult {
 
 interface CommandSpec {
   executable: string;
-  argsPrefix: string[];
+  args: string[];
 }
 
-const STRICT_JSON_RETRY_INSTRUCTION = [
-  "Return valid JSON only.",
-  "Do not include markdown fences.",
-  "Do not include commentary, headings, or any text before/after JSON.",
-  "The first character of your response must be '{' and the last must be '}'.",
-  'Output must match: {"diagnostics":[{"rule_id":"<id>","severity":"error|warn|info","message":"<text>","file":"<path>","line":1}]}'
-].join(" ");
+const STRICT_JSON_RETRY_INSTRUCTION = getStrictJsonRetryInstruction();
 
 function isEnoentError(error: unknown): boolean {
   return (
@@ -29,25 +25,33 @@ function isEnoentError(error: unknown): boolean {
   );
 }
 
-function debugLog(enabled: boolean, message: string): void {
-  if (enabled) {
-    process.stderr.write(`[debug] ${message}\n`);
-  }
+function logBackendCommand(label: string, executable: string, args: string[], prompt: string): void {
+  const printableParts = [executable, ...args.map((arg) => (arg === prompt ? "<prompt-redacted>" : arg))];
+  process.stderr.write(`[semlint] ${label}: ${printableParts.join(" ")}\n`);
 }
 
 function resolveCommandSpecs(config: EffectiveConfig): CommandSpec[] {
-  if (config.backend === "cursor-cli") {
-    // Always use `cursor agent` directly for cursor-cli.
-    return [{ executable: "cursor", argsPrefix: ["agent"] }];
-  }
-
-  const configuredExecutable = config.backendExecutables[config.backend];
-  if (!configuredExecutable) {
+  const configuredBackend = config.backendConfigs[config.backend];
+  if (!configuredBackend) {
     throw new Error(
-      `No executable configured for backend "${config.backend}". Configure it under backends.${config.backend}.executable`
+      `Backend "${config.backend}" is not configured. Add it under backends.${config.backend} in semlint.json (run "semlint init" to scaffold a complete config).`
     );
   }
-  return [{ executable: configuredExecutable, argsPrefix: [] }];
+
+  return [
+    {
+      executable: configuredBackend.executable,
+      args: configuredBackend.args
+    }
+  ];
+}
+
+function interpolateArgs(args: string[], prompt: string, model: string): string[] {
+  return args.map((arg) => {
+    if (arg === "{prompt}") return prompt;
+    if (arg === "{model}") return model;
+    return arg;
+  });
 }
 
 function executeBackendCommand(
@@ -99,6 +103,30 @@ function executeBackendCommand(
       resolve({ stdout, stderr, elapsedMs: Date.now() - startedAt });
     });
   });
+}
+
+function executeBackendCommandInteractive(executable: string, args: string[]): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(executable, args, {
+      stdio: "inherit"
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Interactive backend command failed with code ${code}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function canUseInteractiveRecovery(): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY && process.stderr.isTTY);
 }
 
 function extractFirstJsonObject(raw: string): string | undefined {
@@ -182,82 +210,93 @@ export function createBackendRunner(config: EffectiveConfig): {
   runRule(input: RunRuleInput): Promise<BackendResult>;
 } {
   const commandSpecs = resolveCommandSpecs(config);
+  async function runWithRetry(spec: CommandSpec, input: RunPromptInput): Promise<BackendResult | null> {
+    const commandName = spec.executable;
+    const firstPrompt = input.prompt;
+    const firstArgs = interpolateArgs(spec.args, firstPrompt, config.model);
+    let interactiveRecoveryAttempted = false;
+    try {
+      if (config.debug) {
+        logBackendCommand(`${input.label} attempt 1`, spec.executable, firstArgs, firstPrompt);
+      }
+      debugLog(
+        config.debug,
+        `${input.label}: backend attempt 1 via "${commandName}" (timeout ${input.timeoutMs}ms)`
+      );
+      const first = await executeBackendCommand(spec.executable, firstArgs, input.timeoutMs);
+      debugLog(config.debug, `${input.label}: backend attempt 1 completed in ${first.elapsedMs}ms`);
+      return parseBackendResult(first.stdout.trim());
+    } catch (firstError) {
+      debugLog(
+        config.debug,
+        `${input.label}: backend attempt 1 failed (${firstError instanceof Error ? firstError.message : String(firstError)})`
+      );
+
+      const retryPrompt = `${input.prompt}\n\n${STRICT_JSON_RETRY_INSTRUCTION}`;
+      const retryArgs = interpolateArgs(spec.args, retryPrompt, config.model);
+      try {
+        if (config.debug) {
+          logBackendCommand(`${input.label} attempt 2`, spec.executable, retryArgs, retryPrompt);
+        }
+        debugLog(
+          config.debug,
+          `${input.label}: backend attempt 2 via "${commandName}" (timeout ${input.timeoutMs}ms)`
+        );
+        const second = await executeBackendCommand(spec.executable, retryArgs, input.timeoutMs);
+        debugLog(config.debug, `${input.label}: backend attempt 2 completed in ${second.elapsedMs}ms`);
+        return parseBackendResult(second.stdout.trim());
+      } catch (secondError) {
+        debugLog(
+          config.debug,
+          `${input.label}: backend attempt 2 failed (${secondError instanceof Error ? secondError.message : String(secondError)})`
+        );
+        if (
+          !interactiveRecoveryAttempted &&
+          !isEnoentError(firstError) &&
+          !isEnoentError(secondError) &&
+          canUseInteractiveRecovery()
+        ) {
+          interactiveRecoveryAttempted = true;
+          process.stderr.write(
+            "[semlint] Backend requires interactive setup. Switching to interactive passthrough once...\n"
+          );
+          await executeBackendCommandInteractive(spec.executable, firstArgs);
+          debugLog(
+            config.debug,
+            `${input.label}: interactive setup completed; retrying backend in machine mode`
+          );
+          const recovered = await executeBackendCommand(spec.executable, firstArgs, input.timeoutMs);
+          return parseBackendResult(recovered.stdout.trim());
+        }
+        if (isEnoentError(secondError) || isEnoentError(firstError)) {
+          return null;
+        }
+        throw firstError;
+      }
+    }
+  }
 
   return {
     async runPrompt(input: RunPromptInput): Promise<BackendResult> {
       let lastError: unknown;
 
       for (const spec of commandSpecs) {
-        const commandName = [spec.executable, ...spec.argsPrefix].join(" ");
-        const baseArgs = [
-          ...spec.argsPrefix,
-          input.prompt,
-          "--model",
-          config.model,
-          "--print",
-          "--mode",
-          "ask",
-          "--output-format",
-          "text"
-        ];
-
         try {
-          debugLog(
-            config.debug,
-            `${input.label}: backend attempt 1 via "${commandName}" (timeout ${input.timeoutMs}ms)`
-          );
-          const first = await executeBackendCommand(spec.executable, baseArgs, input.timeoutMs);
-          debugLog(
-            config.debug,
-            `${input.label}: backend attempt 1 completed in ${first.elapsedMs}ms`
-          );
-          return parseBackendResult(first.stdout.trim());
-        } catch (firstError) {
-          debugLog(
-            config.debug,
-            `${input.label}: backend attempt 1 failed (${firstError instanceof Error ? firstError.message : String(firstError)})`
-          );
-          const retryPrompt = `${input.prompt}\n\n${STRICT_JSON_RETRY_INSTRUCTION}`;
-          const retryArgs = [
-            ...spec.argsPrefix,
-            retryPrompt,
-            "--model",
-            config.model,
-            "--print",
-            "--mode",
-            "ask",
-            "--output-format",
-            "text"
-          ];
-          try {
-            debugLog(
-              config.debug,
-              `${input.label}: backend attempt 2 via "${commandName}" (timeout ${input.timeoutMs}ms)`
-            );
-            const second = await executeBackendCommand(spec.executable, retryArgs, input.timeoutMs);
-            debugLog(
-              config.debug,
-              `${input.label}: backend attempt 2 completed in ${second.elapsedMs}ms`
-            );
-            return parseBackendResult(second.stdout.trim());
-          } catch (secondError) {
-            debugLog(
-              config.debug,
-              `${input.label}: backend attempt 2 failed (${secondError instanceof Error ? secondError.message : String(secondError)})`
-            );
-            lastError = secondError;
-            if (isEnoentError(secondError)) {
-              continue;
-            }
-            if (isEnoentError(firstError)) {
-              continue;
-            }
-            throw firstError;
+          const result = await runWithRetry(spec, input);
+          if (result) {
+            return result;
           }
+          continue;
+        } catch (error) {
+          lastError = error;
+          throw error;
         }
       }
 
-      throw lastError instanceof Error ? lastError : new Error(String(lastError));
+      if (lastError) {
+        throw lastError instanceof Error ? lastError : new Error(String(lastError));
+      }
+      throw new Error(`No backend command could be executed for "${config.backend}"`);
     },
     async runRule(input: RunRuleInput): Promise<BackendResult> {
       return this.runPrompt({

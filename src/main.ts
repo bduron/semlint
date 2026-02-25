@@ -1,22 +1,17 @@
 import pc from "picocolors";
 import { createSpinner, Spinner } from "nanospinner";
 import path from "node:path";
+import { version as VERSION } from "../package.json";
 import { createBackendRunner } from "./backend";
 import { loadEffectiveConfig } from "./config";
-import { hasBlockingDiagnostic, normalizeDiagnostics, sortDiagnostics } from "./diagnostics";
-import { shouldRunRule, buildRulePrompt, extractChangedFilesFromDiff, buildScopedDiff } from "./filter";
+import { hasBlockingDiagnostic, sortDiagnostics } from "./diagnostics";
+import { runBatchDispatch, runParallelDispatch } from "./dispatch";
+import { shouldRunRule, extractChangedFilesFromDiff } from "./filter";
 import { getGitDiff, getLocalBranchDiff, getRepoRoot } from "./git";
 import { formatJsonOutput, formatTextOutput } from "./reporter";
 import { loadRules } from "./rules";
-import { BackendDiagnostic, CliOptions, LoadedRule } from "./types";
-
-const VERSION = "0.1.0";
-
-function debugLog(enabled: boolean, message: string): void {
-  if (enabled) {
-    process.stderr.write(`${pc.gray(`[debug] ${message}`)}\n`);
-  }
-}
+import { BackendDiagnostic, CliOptions } from "./types";
+import { debugLog } from "./utils";
 
 function timed<T>(enabled: boolean, label: string, action: () => T): T {
   const startedAt = Date.now();
@@ -30,58 +25,6 @@ async function timedAsync<T>(enabled: boolean, label: string, action: () => Prom
   const result = await action();
   debugLog(enabled, `${label} in ${Date.now() - startedAt}ms`);
   return result;
-}
-
-function buildBatchPrompt(rules: LoadedRule[], diff: string): string {
-  const ruleBlocks = rules
-    .map((rule) =>
-      [
-        `RULE_ID: ${rule.id}`,
-        `RULE_TITLE: ${rule.title}`,
-        `SEVERITY_DEFAULT: ${rule.effectiveSeverity}`,
-        "INSTRUCTIONS:",
-        rule.prompt
-      ].join("\n")
-    )
-    .join("\n\n---\n\n");
-
-  return [
-    "You are Semlint, an expert semantic code reviewer.",
-    "BATCH_MODE: true",
-    "Evaluate all rules below against the DIFF in one pass.",
-    "Analyze ONLY the modified code present in the DIFF below.",
-    "Return JSON only (no markdown, no prose, no code fences).",
-    "Output schema:",
-    "{",
-    "  \"diagnostics\": [",
-    "    {",
-    "      \"rule_id\": string,",
-    "      \"severity\": \"error\" | \"warn\" | \"info\",",
-    "      \"message\": string,",
-    "      \"file\": string,",
-    "      \"line\": number,",
-    "      \"column\"?: number,",
-    "      \"end_line\"?: number,",
-    "      \"end_column\"?: number,",
-    "      \"evidence\"?: string,",
-    "      \"confidence\"?: number",
-    "    }",
-    "  ]",
-    "}",
-    "Rules:",
-    "- If there are no findings, return {\"diagnostics\":[]}.",
-    "- Each diagnostic must reference a changed file from the DIFF.",
-    "- rule_id must match one of the RULE_ID values listed below.",
-    "- Keep messages concise and actionable.",
-    "- Deduplicate semantically equivalent findings before returning output.",
-    "- When duplicates exist, keep a single diagnostic from the rule that semantically matches the issue best, even if that selected diagnostic has lower severity.",
-    "",
-    "RULES:",
-    ruleBlocks,
-    "",
-    "DIFF:",
-    diff
-  ].join("\n");
 }
 
 export async function runSemlint(options: CliOptions): Promise<number> {
@@ -126,7 +69,7 @@ export async function runSemlint(options: CliOptions): Promise<number> {
       return true;
     });
 
-    const diagnostics: BackendDiagnostic[] = [];
+    let diagnostics: BackendDiagnostic[] = [];
     const rulesRun = runnableRules.length;
     let backendErrors = 0;
 
@@ -147,111 +90,29 @@ export async function runSemlint(options: CliOptions): Promise<number> {
           ).start()
         : null;
 
-    if (config.batchMode && runnableRules.length > 0) {
-      debugLog(config.debug, `Running ${runnableRules.length} rule(s) in batch mode`);
-      const combinedDiff = timed(config.debug, "Batch: combined scoped diff build", () =>
-        runnableRules
-          .map((rule) => buildScopedDiff(rule, diff, changedFiles))
-          .filter((chunk) => chunk.trim() !== "")
-          .join("\n")
+    if (runnableRules.length > 0) {
+      const dispatchLabel = config.batchMode ? "batch" : "parallel";
+      const result = await timedAsync(config.debug, `Dispatch (${dispatchLabel})`, () =>
+        config.batchMode
+          ? runBatchDispatch({
+              rules: runnableRules,
+              diff,
+              changedFiles,
+              backend,
+              config,
+              repoRoot
+            })
+          : runParallelDispatch({
+              rules: runnableRules,
+              diff,
+              changedFiles,
+              backend,
+              config,
+              repoRoot
+            })
       );
-      const batchPrompt = timed(config.debug, "Batch: prompt build", () =>
-        buildBatchPrompt(runnableRules, combinedDiff || diff)
-      );
-
-      try {
-        const batchResult = await timedAsync(config.debug, "Batch: backend run", () =>
-          backend.runPrompt({
-            label: "Batch",
-            prompt: batchPrompt,
-            timeoutMs: config.timeoutMs
-          })
-        );
-
-        const groupedByRule = new Map<string, unknown[]>();
-        for (const diagnostic of batchResult.diagnostics as unknown[]) {
-          if (
-            typeof diagnostic === "object" &&
-            diagnostic !== null &&
-            !Array.isArray(diagnostic) &&
-            typeof (diagnostic as { rule_id?: unknown }).rule_id === "string"
-          ) {
-            const ruleId = (diagnostic as { rule_id: string }).rule_id;
-            const current = groupedByRule.get(ruleId) ?? [];
-            current.push(diagnostic);
-            groupedByRule.set(ruleId, current);
-          } else {
-            debugLog(config.debug, "Batch: dropped diagnostic without valid rule_id");
-          }
-        }
-
-        const validRuleIds = new Set(runnableRules.map((rule) => rule.id));
-        for (const [ruleId] of groupedByRule) {
-          if (!validRuleIds.has(ruleId)) {
-            debugLog(config.debug, `Batch: dropped diagnostic for unknown rule_id ${ruleId}`);
-          }
-        }
-
-        for (const rule of runnableRules) {
-          const normalized = timed(
-            config.debug,
-            `Batch: diagnostics normalization for ${rule.id}`,
-            () => normalizeDiagnostics(rule.id, groupedByRule.get(rule.id) ?? [], config.debug, repoRoot)
-          );
-          diagnostics.push(...normalized);
-        }
-      } catch (error) {
-        backendErrors += 1;
-        const message = error instanceof Error ? error.message : String(error);
-        debugLog(config.debug, `Batch backend error: ${message}`);
-      }
-    } else {
-      debugLog(config.debug, `Running ${runnableRules.length} rule(s) in parallel`);
-      const runResults = await Promise.all(
-        runnableRules.map(async (rule) => {
-          let backendError = false;
-          let normalized: BackendDiagnostic[] = [];
-
-          const ruleStartedAt = Date.now();
-          debugLog(config.debug, `Rule ${rule.id}: started`);
-
-          const scopedDiff = timed(config.debug, `Rule ${rule.id}: scoped diff build`, () =>
-            buildScopedDiff(rule, diff, changedFiles)
-          );
-
-          const prompt = timed(config.debug, `Rule ${rule.id}: prompt build`, () =>
-            buildRulePrompt(rule, scopedDiff)
-          );
-
-          try {
-            const result = await timedAsync(config.debug, `Rule ${rule.id}: backend run`, () =>
-              backend.runRule({
-                ruleId: rule.id,
-                prompt,
-                timeoutMs: config.timeoutMs
-              })
-            );
-
-            normalized = timed(config.debug, `Rule ${rule.id}: diagnostics normalization`, () =>
-              normalizeDiagnostics(rule.id, result.diagnostics, config.debug, repoRoot)
-            );
-          } catch (error) {
-            backendError = true;
-            const message = error instanceof Error ? error.message : String(error);
-            debugLog(config.debug, `Backend error for rule ${rule.id}: ${message}`);
-          }
-
-          debugLog(config.debug, `Rule ${rule.id}: finished in ${Date.now() - ruleStartedAt}ms`);
-          return { backendError, normalized };
-        })
-      );
-
-      for (const result of runResults) {
-        if (result.backendError) {
-          backendErrors += 1;
-        }
-        diagnostics.push(...result.normalized);
-      }
+      diagnostics = result.diagnostics;
+      backendErrors = result.backendErrors;
     }
 
     const sorted = timed(config.debug, "Sorted diagnostics", () => sortDiagnostics(diagnostics));

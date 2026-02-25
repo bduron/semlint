@@ -75,7 +75,6 @@ Unknown fields are ignored.
 ```json
 {
   "backend": "cursor-cli",
-  "model": "auto",
   "budgets": {
     "timeout_ms": 120000
   },
@@ -93,7 +92,9 @@ Unknown fields are ignored.
   },
   "backends": {
     "cursor-cli": {
-      "executable": "agent"
+      "executable": "cursor",
+      "model": "auto",
+      "args": ["agent", "{prompt}", "--model", "{model}", "--print", "--mode", "ask", "--output-format", "text"]
     }
   }
 }
@@ -138,16 +139,32 @@ Invalid rules cause runtime failure with exit code `2`.
 
 ## Backend contract
 
-For backend `cursor-cli`, Semlint executes:
+Semlint is fully config-driven at runtime. For the selected `backend`, it executes:
 
-```bash
-cursor agent "<prompt>" --model <model> --print --output-format text
+- `backends.<backend>.executable` as the binary
+- `backends.<backend>.model` as the backend-specific model (unless `--model` is passed)
+- `backends.<backend>.args` as the argument template
+
+`args` supports placeholder tokens:
+
+- `{prompt}`: replaced with the generated prompt
+- `{model}`: replaced with the configured model
+
+Placeholders are exact-match substitutions on whole args. Backends must be fully configured in `semlint.json`; there are no runtime fallbacks.
+
+Example:
+
+```json
+{
+  "backends": {
+    "cursor-cli": {
+      "executable": "cursor",
+      "model": "auto",
+      "args": ["agent", "{prompt}", "--model", "{model}", "--print", "--mode", "ask", "--output-format", "text"]
+    }
+  }
+}
 ```
-
-For `cursor-cli`, Semlint always uses `cursor agent` directly.
-Other backend names still resolve executables from config:
-
-- `backends.<backend>.executable` if provided
 
 Backend stdout must be valid JSON with shape:
 
@@ -167,6 +184,17 @@ Backend stdout must be valid JSON with shape:
 
 If parsing fails, Semlint retries once with appended instruction:
 `Return valid JSON only.`
+
+If backend execution still fails and Semlint is running in an interactive terminal (TTY), it automatically performs one interactive passthrough run so you can satisfy backend setup prompts (for example auth/workspace trust), then retries machine parsing once.
+
+## Prompt files
+
+Core system prompts are externalized under `prompts/` so prompt behavior is easy to inspect and iterate:
+
+- `prompts/common-contract.md`: shared output schema and base rules used by both modes
+- `prompts/rule.md`: single-rule evaluation prompt
+- `prompts/batch.md`: batch evaluation prompt
+- `prompts/retry-json.md`: strict JSON retry instruction
 
 ## Batch mode
 

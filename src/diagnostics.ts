@@ -1,12 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { BackendDiagnostic, Severity } from "./types";
-
-const VALID_SEVERITIES = new Set<Severity>(["error", "warn", "info"]);
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 1;
-}
+import { isPositiveInteger, VALID_SEVERITIES } from "./utils";
 
 /**
  * @param resolveRoot - Directory to resolve diagnostic file paths against (e.g. git repo root).
@@ -18,15 +13,13 @@ export function normalizeDiagnostics(
   debug: boolean,
   resolveRoot?: string | null
 ): BackendDiagnostic[] {
-  const out: BackendDiagnostic[] = [];
   const baseDir = resolveRoot && resolveRoot.length > 0 ? resolveRoot : process.cwd();
-
-  for (const raw of diagnostics) {
+  return diagnostics.flatMap((raw) => {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
       if (debug) {
         process.stderr.write(`[debug] Dropped diagnostic for ${ruleId}: not an object\n`);
       }
-      continue;
+      return [];
     }
 
     const candidate = raw as Record<string, unknown>;
@@ -52,34 +45,33 @@ export function normalizeDiagnostics(
           `[debug] Dropped diagnostic for ${ruleId}: failed required field validation\n`
         );
       }
-      continue;
+      return [];
     }
 
-    const absolute = path.resolve(baseDir, file);
-    if (!fs.existsSync(absolute)) {
+    if (!fs.existsSync(path.resolve(baseDir, file))) {
       if (debug) {
         process.stderr.write(
           `[debug] Dropped diagnostic for ${ruleId}: file does not exist (${file})\n`
         );
       }
-      continue;
+      return [];
     }
 
-    out.push({
-      rule_id: candidateRuleId,
-      severity: severity as Severity,
-      message,
-      file,
-      line,
-      column: isPositiveInteger(candidate.column) ? candidate.column : undefined,
-      end_line: isPositiveInteger(candidate.end_line) ? candidate.end_line : undefined,
-      end_column: isPositiveInteger(candidate.end_column) ? candidate.end_column : undefined,
-      evidence: typeof candidate.evidence === "string" ? candidate.evidence : undefined,
-      confidence: typeof candidate.confidence === "number" ? candidate.confidence : undefined
-    });
-  }
-
-  return out;
+    return [
+      {
+        rule_id: candidateRuleId,
+        severity: severity as Severity,
+        message,
+        file,
+        line,
+        column: isPositiveInteger(candidate.column) ? candidate.column : undefined,
+        end_line: isPositiveInteger(candidate.end_line) ? candidate.end_line : undefined,
+        end_column: isPositiveInteger(candidate.end_column) ? candidate.end_column : undefined,
+        evidence: typeof candidate.evidence === "string" ? candidate.evidence : undefined,
+        confidence: typeof candidate.confidence === "number" ? candidate.confidence : undefined
+      }
+    ];
+  });
 }
 
 const SEVERITY_ORDER: Record<Severity, number> = {

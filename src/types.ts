@@ -23,7 +23,6 @@ export interface LoadedConfig {
 
 export interface ConfigFile {
   backend?: string;
-  model?: string;
   budgets?: {
     timeout_ms?: number;
   };
@@ -41,6 +40,8 @@ export interface ConfigFile {
     string,
     {
       executable?: string;
+      args?: string[];
+      model?: string;
     }
   >;
 }
@@ -57,7 +58,14 @@ export interface EffectiveConfig {
   batchMode: boolean;
   rulesDisable: string[];
   severityOverrides: Record<string, Severity>;
-  backendExecutables: Record<string, string>;
+  backendConfigs: Record<
+    string,
+    {
+      executable: string;
+      args: string[];
+      model?: string;
+    }
+  >;
 }
 
 export interface RuleFile {

@@ -29,23 +29,18 @@ export function formatJsonOutput(
 }
 
 export function formatTextOutput(diagnostics: BackendDiagnostic[], stats: RunStats): string {
-  const lines: string[] = [];
-  let currentFile = "";
-
-  for (const diagnostic of diagnostics) {
-    if (diagnostic.file !== currentFile) {
-      if (lines.length > 0) {
-        lines.push("");
-      }
-      currentFile = diagnostic.file;
-      lines.push(pc.underline(currentFile));
-    }
-
-    const column = diagnostic.column ?? 1;
-    lines.push(
-      `  ${pc.dim(`${diagnostic.line}:${column}`)}  ${formatSeverity(diagnostic.severity)}  ${pc.gray(diagnostic.rule_id)}  ${diagnostic.message}`
-    );
-  }
+  const groupedByFile = diagnostics.reduce<Map<string, BackendDiagnostic[]>>((acc, diagnostic) => {
+    acc.set(diagnostic.file, [...(acc.get(diagnostic.file) ?? []), diagnostic]);
+    return acc;
+  }, new Map<string, BackendDiagnostic[]>());
+  const lines = Array.from(groupedByFile.entries()).flatMap(([file, fileDiagnostics], fileIndex) => [
+    ...(fileIndex > 0 ? [""] : []),
+    pc.underline(file),
+    ...fileDiagnostics.map((diagnostic) => {
+      const column = diagnostic.column ?? 1;
+      return `  ${pc.dim(`${diagnostic.line}:${column}`)}  ${formatSeverity(diagnostic.severity)}  ${pc.gray(diagnostic.rule_id)}  ${diagnostic.message}`;
+    })
+  ]);
 
   const errors = diagnostics.filter((d) => d.severity === "error").length;
   const warnings = diagnostics.filter((d) => d.severity === "warn").length;
@@ -54,7 +49,7 @@ export function formatTextOutput(diagnostics: BackendDiagnostic[], stats: RunSta
   if (lines.length > 0) {
     lines.push("");
   }
-  
+
   const summary = `✖ ${problems} problems (${errors} errors, ${warnings} warnings)`;
   const timeInfo = ` in ${(stats.durationMs / 1000).toFixed(1)}s`;
 
