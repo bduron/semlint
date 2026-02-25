@@ -1,6 +1,6 @@
 {
   "name": "semlint-cli",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Semantic lint CLI — runs LLM-backed rules on your git diff and returns CI-friendly exit codes",
   "type": "commonjs",
   "main": "dist/main.js",
