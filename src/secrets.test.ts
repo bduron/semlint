@@ -83,3 +83,30 @@ test("scanDiffForSecrets skips files listed in allow_files", () => {
   const findings = scanDiffForSecrets(diff, [], ["src/test2.ts"]);
   assert.equal(findings.length, 0);
 });
+
+test("filterDiffByIgnoreRules matches basename ignores in nested paths", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "semlint-ignore-basename-"));
+  try {
+    fs.writeFileSync(path.join(cwd, ".semlintignore"), ".env\n*.env\n", "utf8");
+
+    const diff = [
+      "diff --git a/src/secret.env b/src/secret.env",
+      "--- a/src/secret.env",
+      "+++ b/src/secret.env",
+      "@@ -0,0 +1 @@",
+      "+API_KEY=abc",
+      "diff --git a/src/safe.ts b/src/safe.ts",
+      "--- a/src/safe.ts",
+      "+++ b/src/safe.ts",
+      "@@ -0,0 +1 @@",
+      "+const safe = true;"
+    ].join("\n");
+
+    const result = filterDiffByIgnoreRules(diff, cwd, [".semlintignore"]);
+    assert.deepEqual(result.excludedFiles, ["src/secret.env"]);
+    assert.match(result.filteredDiff, /src\/safe\.ts/);
+    assert.doesNotMatch(result.filteredDiff, /src\/secret\.env/);
+  } finally {
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
+});
