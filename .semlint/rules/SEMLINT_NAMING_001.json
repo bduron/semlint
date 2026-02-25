@@ -2,9 +2,7 @@
   "id": "SEMLINT_NAMING_001",
   "title": "Ambient naming convention consistency",
   "severity_default": "warn",
-  "diff_regex": [
-    "^[+-].*\\b(const|let|var|function|class|interface|type|enum)\\b",
-    "^[+-].*\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-  ],
+  "include_globs": [],
+  "exclude_globs": [],
   "prompt": "Verify naming is consistent with the ambient naming conventions already used in surrounding code. Both in term of semantic and casing."
 }

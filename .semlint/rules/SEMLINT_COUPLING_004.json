@@ -1,0 +1,8 @@
+{
+  "id": "SEMLINT_COUPLING_004",
+  "title": "Check for unwanted hidden coupling",
+  "severity_default": "warn",
+  "include_globs": [],
+  "exclude_globs": [],
+  "prompt": "Flag any coupling that is not obvious at first glance. (hidden/implicit coupling, and forms of connascence)"
+}

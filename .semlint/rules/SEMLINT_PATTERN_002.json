@@ -2,11 +2,7 @@
   "id": "SEMLINT_PATTERN_002",
   "title": "Ambient pattern is respected",
   "severity_default": "warn",
-  "include_globs": ["src/**/*.ts"],
-  "exclude_globs": ["**/*.test.ts", "**/*.spec.ts"],
-  "diff_regex": [
-    "^[+-].*\\b(async|await|Promise|try|catch|throw|switch|map|filter|reduce|forEach)\\b",
-    "^[+-].*\\b(import|export|class|interface|type|function|return)\\b"
-  ],
-  "prompt": "Check whether ambient implementation patterns are respected. Compare new or changed code against nearby established patterns. Flag clear regressions where the proposed change deviates from consistent local patterns without obvious justification."
+  "include_globs": [],
+  "exclude_globs": [],
+  "prompt": "Any change that breaks an established local pattern should be flagged by default. Consistency with adjacent implementations is the enforced invariant."
 }
