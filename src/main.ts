@@ -64,6 +64,7 @@ async function confirmDiffPreview(
 
   process.stdout.write("\n");
   process.stdout.write(`${pc.cyan(semlintAscii.join("\n"))}\n\n`);
+  process.stdout.write(`${pc.dim(`Semlint v${VERSION} (alpha) - Use at your own risk.`)}\n`);
   process.stdout.write(`${boxBorder}\n`);
   process.stdout.write(boxLine("Diff preview", (value) => pc.bold(value)));
   process.stdout.write(
