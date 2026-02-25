@@ -42,16 +42,40 @@ async function confirmDiffPreview(
   excludedFiles: string[],
   autoAccept: boolean | undefined
 ): Promise<boolean> {
+  const boxWidth = 80;
+  const boxBorder = pc.dim(`+${"-".repeat(boxWidth - 2)}+`);
+  // INFO : https://patorjk.com/software/taag/#p=display&f=Terrace&t=Semlint&x=none&v=4&h=4&w=80&we=false
+  const semlintAscii = [
+    "  ░██████                              ░██ ░██              ░██    ",
+    " ░██   ░██                             ░██                  ░██    ",
+    "░██          ░███████  ░█████████████  ░██ ░██░████████  ░████████ ",
+    " ░████████  ░██    ░██ ░██   ░██   ░██ ░██ ░██░██    ░██    ░██    ",
+    "        ░██ ░█████████ ░██   ░██   ░██ ░██ ░██░██    ░██    ░██    ",
+    " ░██   ░██  ░██        ░██   ░██   ░██ ░██ ░██░██    ░██    ░██    ",
+    "  ░██████    ░███████  ░██   ░██   ░██ ░██ ░██░██    ░██     ░████ ",
+    "                                                                   ",
+    "                                                                   "
+  ];
+  const boxLine = (text = "", style: (value: string) => string = (value) => value): string => {
+    const visibleText = text.length > boxWidth - 4 ? `${text.slice(0, boxWidth - 7)}...` : text;
+    const padded = visibleText.padEnd(boxWidth - 4, " ");
+    return `${pc.dim("|")} ${style(padded)} ${pc.dim("|")}\n`;
+  };
+
   process.stdout.write("\n");
-  process.stdout.write(pc.blue(pc.bold("Semlint diff preview\n\n")));
+  process.stdout.write(`${pc.cyan(semlintAscii.join("\n"))}\n\n`);
+  process.stdout.write(`${boxBorder}\n`);
+  process.stdout.write(boxLine("Diff preview", (value) => pc.bold(value)));
   process.stdout.write(
-    pc.red(
-      "Warning: any sensitive file included below will be sent to your agent.\nMake sure you understand the security implications (run `semlint-cli security` for more information).\n\n"
-    )
+    boxLine("Review which files are included before sending this diff to your agent.", pc.dim)
   );
-  process.stdout.write(formatFileList("Included files", includedFiles));
+  process.stdout.write(boxLine());
+  process.stdout.write(boxLine("! Security warning", (value) => pc.red(pc.bold(value))));
+  process.stdout.write(boxLine("Run `semlint-cli security` to review security guidance.", pc.dim));
+  process.stdout.write(`${boxBorder}\n\n`);
+  process.stdout.write(formatFileList(pc.bold("Included files"), includedFiles));
   process.stdout.write("\n");
-  process.stdout.write(formatFileList("Excluded files", excludedFiles));
+  process.stdout.write(formatFileList(pc.bold("Excluded files"), excludedFiles));
   process.stdout.write("\n");
 
   if (autoAccept) {
