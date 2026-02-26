@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { devNull } from "node:os";
+import path from "node:path";
 import { DiffFileKind } from "./types";
 
 interface GitCommandResult {
@@ -46,8 +47,12 @@ function runGitCommand(args: string[], okExitCodes: number[] = [0]): Promise<Git
   });
 }
 
-export async function getGitDiff(base: string, head: string): Promise<string> {
-  const result = await runGitCommand(["diff", base, head]);
+function withRepoRootArgs(repoRoot: string | null, args: string[]): string[] {
+  return repoRoot ? ["-C", repoRoot, ...args] : args;
+}
+
+export async function getGitDiff(base: string, head: string, repoRoot?: string | null): Promise<string> {
+  const result = await runGitCommand(withRepoRootArgs(repoRoot ?? null, ["diff", base, head]));
   return result.stdout;
 }
 
@@ -65,16 +70,22 @@ export async function getRepoRoot(): Promise<string | null> {
   }
 }
 
-async function getUntrackedFiles(): Promise<string[]> {
-  const result = await runGitCommand(["ls-files", "--others", "--exclude-standard"]);
+async function getUntrackedFiles(repoRoot?: string | null): Promise<string[]> {
+  const result = await runGitCommand(
+    withRepoRootArgs(repoRoot ?? null, ["ls-files", "--others", "--exclude-standard", "--full-name"])
+  );
   return result.stdout
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 }
 
-async function getNoIndexDiffForFile(filePath: string): Promise<string> {
-  const result = await runGitCommand(["diff", "--no-index", "--", devNull, filePath], [0, 1]);
+async function getNoIndexDiffForFile(filePath: string, repoRoot?: string | null): Promise<string> {
+  const resolvedPath = repoRoot ? path.relative(repoRoot, path.join(repoRoot, filePath)) : filePath;
+  const result = await runGitCommand(
+    withRepoRootArgs(repoRoot ?? null, ["diff", "--no-index", "--", devNull, resolvedPath]),
+    [0, 1]
+  );
   return result.stdout;
 }
 
@@ -86,7 +97,8 @@ async function getNoIndexDiffForFile(filePath: string): Promise<string> {
  * Does not include already-committed changes on the branch.
  */
 export async function getLocalBranchDiff(
-  fileKinds: DiffFileKind[] = ["staged", "unstaged", "untracked"]
+  fileKinds: DiffFileKind[] = ["staged", "unstaged", "untracked"],
+  repoRoot?: string | null
 ): Promise<string> {
   const parts: LocalBranchDiffParts = {
     stagedDiff: "",
@@ -95,19 +107,19 @@ export async function getLocalBranchDiff(
   };
 
   if (fileKinds.includes("staged")) {
-    const stagedResult = await runGitCommand(["diff", "--cached"]);
+    const stagedResult = await runGitCommand(withRepoRootArgs(repoRoot ?? null, ["diff", "--cached"]));
     parts.stagedDiff = stagedResult.stdout;
   }
 
   if (fileKinds.includes("unstaged")) {
-    const unstagedResult = await runGitCommand(["diff"]);
+    const unstagedResult = await runGitCommand(withRepoRootArgs(repoRoot ?? null, ["diff"]));
     parts.unstagedDiff = unstagedResult.stdout;
   }
 
   if (fileKinds.includes("untracked")) {
-    const untrackedFiles = await getUntrackedFiles();
+    const untrackedFiles = await getUntrackedFiles(repoRoot);
     for (const filePath of untrackedFiles) {
-      const fileDiff = await getNoIndexDiffForFile(filePath);
+      const fileDiff = await getNoIndexDiffForFile(filePath, repoRoot);
       if (fileDiff.trim() !== "") {
         parts.untrackedDiffs.push(fileDiff);
       }

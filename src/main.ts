@@ -121,7 +121,9 @@ export async function runSemlint(options: CliOptions): Promise<number> {
     const scanRoot = repoRoot ?? process.cwd();
     debugLog(config.debug, `Using diff/ignore scan root: ${scanRoot}`);
     const rawDiff = await timedAsync(config.debug, "Computed git diff", () =>
-      useLocalBranchDiff ? getLocalBranchDiff(config.diff.fileKinds) : getGitDiff(config.base, config.head)
+      useLocalBranchDiff
+        ? getLocalBranchDiff(config.diff.fileKinds, repoRoot)
+        : getGitDiff(config.base, config.head, repoRoot)
     );
     const { filteredDiff: globFilteredDiff, excludedFiles: globExcludedFiles } = timed(
       config.debug,

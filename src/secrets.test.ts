@@ -84,6 +84,19 @@ test("scanDiffForSecrets skips files listed in allow_files", () => {
   assert.equal(findings.length, 0);
 });
 
+test("scanDiffForSecrets allow_files supports basename glob patterns", () => {
+  const diff = [
+    "diff --git a/fixtures/nested/secret.fixture.ts b/fixtures/nested/secret.fixture.ts",
+    "--- a/fixtures/nested/secret.fixture.ts",
+    "+++ b/fixtures/nested/secret.fixture.ts",
+    "@@ -0,0 +1 @@",
+    '+const password = "fixture-secret";'
+  ].join("\n");
+
+  const findings = scanDiffForSecrets(diff, [], ["*.fixture.ts"]);
+  assert.equal(findings.length, 0);
+});
+
 test("filterDiffByIgnoreRules matches basename ignores in nested paths", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "semlint-ignore-basename-"));
   try {

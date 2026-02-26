@@ -52,7 +52,6 @@ const SECRET_KEYWORDS = [
   "xoxp-",
   "akia",
   "-----begin",
-  "key"
 ];
 
 function readIgnorePatterns(cwd: string, ignoreFiles: string[]): string[] {
@@ -124,7 +123,8 @@ export function scanDiffForSecrets(
 ): SecretFinding[] {
   const findings: SecretFinding[] = [];
   const allowMatchers = parseAllowMatchers(allowPatterns);
-  const allowFileMatcher = allowFiles.length > 0 ? picomatch(allowFiles, { dot: true }) : undefined;
+  const allowFileMatcher =
+    allowFiles.length > 0 ? picomatch(allowFiles, { dot: true, basename: true }) : undefined;
   const lines = diff.split("\n");
 
   let currentFile = "(unknown)";

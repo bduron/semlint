@@ -180,13 +180,14 @@ function sanitizeDiffFileKinds(value: unknown): DiffFileKind[] {
   if (!Array.isArray(value)) {
     return [...DEFAULTS.diff.fileKinds];
   }
-  return value.flatMap((candidate) => {
+  const normalized = value.flatMap((candidate) => {
     if (typeof candidate !== "string") {
       return [];
     }
     const normalized = candidate.trim() as DiffFileKind;
     return VALID_DIFF_FILE_KINDS.has(normalized) ? [normalized] : [];
   });
+  return normalized.length > 0 ? normalized : [...DEFAULTS.diff.fileKinds];
 }
 
 function ensureSelectedBackendIsConfigured(
